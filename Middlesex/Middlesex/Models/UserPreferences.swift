@@ -1,0 +1,102 @@
+//
+//  UserPreferences.swift
+//  Middlesex
+//
+//  User preferences and schedule storage
+//
+
+import Foundation
+import SwiftUI
+import Combine
+
+class UserPreferences: ObservableObject {
+    static let shared = UserPreferences()
+
+    @AppStorage("hasCompletedOnboarding") var hasCompletedOnboarding: Bool = false
+    @AppStorage("userName") var userName: String = ""
+    @AppStorage("userGrade") var userGrade: String = ""
+
+    // Store user's class schedule as JSON
+    @Published var redWeekSchedule: [Int: UserClass] = [:] {
+        didSet {
+            saveSchedule(redWeekSchedule, key: "redWeekSchedule")
+        }
+    }
+
+    @Published var whiteWeekSchedule: [Int: UserClass] = [:] {
+        didSet {
+            saveSchedule(whiteWeekSchedule, key: "whiteWeekSchedule")
+        }
+    }
+
+    private init() {
+        loadSchedules()
+    }
+
+    private func saveSchedule(_ schedule: [Int: UserClass], key: String) {
+        if let encoded = try? JSONEncoder().encode(schedule) {
+            UserDefaults.standard.set(encoded, forKey: key)
+        }
+    }
+
+    private func loadSchedules() {
+        if let redData = UserDefaults.standard.data(forKey: "redWeekSchedule"),
+           let decoded = try? JSONDecoder().decode([Int: UserClass].self, from: redData) {
+            redWeekSchedule = decoded
+        }
+
+        if let whiteData = UserDefaults.standard.data(forKey: "whiteWeekSchedule"),
+           let decoded = try? JSONDecoder().decode([Int: UserClass].self, from: whiteData) {
+            whiteWeekSchedule = decoded
+        }
+    }
+
+    func getClass(for period: Int, weekType: ClassSchedule.WeekType) -> UserClass? {
+        switch weekType {
+        case .red:
+            return redWeekSchedule[period]
+        case .white:
+            return whiteWeekSchedule[period]
+        }
+    }
+
+    func setClass(_ userClass: UserClass, for period: Int, weekType: ClassSchedule.WeekType) {
+        switch weekType {
+        case .red:
+            redWeekSchedule[period] = userClass
+        case .white:
+            whiteWeekSchedule[period] = userClass
+        }
+    }
+
+    func removeClass(for period: Int, weekType: ClassSchedule.WeekType) {
+        switch weekType {
+        case .red:
+            redWeekSchedule.removeValue(forKey: period)
+        case .white:
+            whiteWeekSchedule.removeValue(forKey: period)
+        }
+    }
+
+    func clearAllData() {
+        hasCompletedOnboarding = false
+        userName = ""
+        userGrade = ""
+        redWeekSchedule = [:]
+        whiteWeekSchedule = [:]
+    }
+}
+
+struct UserClass: Codable, Hashable {
+    let className: String
+    let teacher: String
+    let room: String
+    let color: String
+
+    init(className: String, teacher: String, room: String, color: String = "#C8102E") {
+        self.className = className
+        self.teacher = teacher
+        self.room = room
+        self.color = color
+    }
+}
