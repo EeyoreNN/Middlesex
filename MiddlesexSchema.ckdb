@@ -62,9 +62,11 @@ DEFINE SCHEMA
         imageURL        STRING,
         isActive        INT64 QUERYABLE,
         isPinned        INT64 QUERYABLE,
+        isCritical      INT64 QUERYABLE,
         createdAt       TIMESTAMP,
         updatedAt       TIMESTAMP,
-        GRANT READ TO "_world"
+        GRANT READ TO "_world",
+        GRANT WRITE TO "_creator"
     );
 
     RECORD TYPE SportsEvent (
@@ -114,4 +116,23 @@ DEFINE SCHEMA
         createdAt       TIMESTAMP,
         updatedAt       TIMESTAMP,
         GRANT READ TO "_world"
+    );
+
+    RECORD TYPE AdminCode (
+        "___createTime" TIMESTAMP,
+        "___createdBy"  REFERENCE,
+        "___etag"       STRING,
+        "___modTime"    TIMESTAMP,
+        "___modifiedBy" REFERENCE,
+        "___recordID"   REFERENCE QUERYABLE,
+        id              STRING,
+        code            STRING QUERYABLE,
+        generatedBy     STRING,
+        generatedAt     TIMESTAMP QUERYABLE SORTABLE,
+        expiresAt       TIMESTAMP QUERYABLE SORTABLE,
+        isUsed          INT64 QUERYABLE,
+        usedBy          STRING,
+        usedAt          TIMESTAMP,
+        GRANT READ TO "_world",
+        GRANT WRITE TO "_creator"
     );

@@ -10,6 +10,9 @@ import SwiftUI
 struct HomeView: View {
     @StateObject private var preferences = UserPreferences.shared
     @StateObject private var cloudKitManager = CloudKitManager.shared
+    @State private var tapCount = 0
+    @State private var lastTapTime: Date?
+    @State private var showingAdminCodeEntry = false
 
     var body: some View {
         NavigationView {
@@ -146,8 +149,32 @@ struct HomeView: View {
                     Image(systemName: "building.columns.fill")
                         .font(.title3)
                         .foregroundColor(MiddlesexTheme.primaryRed)
+                        .onTapGesture {
+                            handleLogoTap()
+                        }
                 }
             }
+            .sheet(isPresented: $showingAdminCodeEntry) {
+                AdminCodeEntryView()
+            }
+        }
+    }
+
+    private func handleLogoTap() {
+        let now = Date()
+
+        // Reset if more than 3 seconds since last tap
+        if let lastTap = lastTapTime, now.timeIntervalSince(lastTap) > 3 {
+            tapCount = 0
+        }
+
+        tapCount += 1
+        lastTapTime = now
+
+        // Show admin code entry after 10 taps
+        if tapCount >= 10 {
+            showingAdminCodeEntry = true
+            tapCount = 0
         }
     }
 

@@ -20,6 +20,7 @@ struct Announcement: Identifiable, Hashable {
     let imageURL: String?
     let isActive: Bool
     let isPinned: Bool
+    let isCritical: Bool
     let createdAt: Date
     let updatedAt: Date
 
@@ -89,6 +90,7 @@ struct Announcement: Identifiable, Hashable {
         self.imageURL = record["imageURL"] as? String
         self.isActive = (record["isActive"] as? Int64 ?? 0) == 1
         self.isPinned = (record["isPinned"] as? Int64 ?? 0) == 1
+        self.isCritical = (record["isCritical"] as? Int64 ?? 0) == 1
         self.createdAt = createdAt
         self.updatedAt = updatedAt
     }
@@ -105,6 +107,7 @@ struct Announcement: Identifiable, Hashable {
          imageURL: String? = nil,
          isActive: Bool = true,
          isPinned: Bool = false,
+         isCritical: Bool = false,
          createdAt: Date = Date(),
          updatedAt: Date = Date()) {
         self.id = id
@@ -118,8 +121,31 @@ struct Announcement: Identifiable, Hashable {
         self.imageURL = imageURL
         self.isActive = isActive
         self.isPinned = isPinned
+        self.isCritical = isCritical
         self.createdAt = createdAt
         self.updatedAt = updatedAt
+    }
+
+    // Convert to CloudKit record
+    func toRecord() -> CKRecord {
+        let record = CKRecord(recordType: "Announcement")
+        record["id"] = id as CKRecordValue
+        record["title"] = title as CKRecordValue
+        record["body"] = body as CKRecordValue
+        record["publishDate"] = publishDate as CKRecordValue
+        record["expiryDate"] = expiryDate as CKRecordValue
+        record["priority"] = priority.rawValue as CKRecordValue
+        record["category"] = category.rawValue as CKRecordValue
+        record["author"] = author as CKRecordValue
+        if let imageURL = imageURL {
+            record["imageURL"] = imageURL as CKRecordValue
+        }
+        record["isActive"] = (isActive ? 1 : 0) as CKRecordValue
+        record["isPinned"] = (isPinned ? 1 : 0) as CKRecordValue
+        record["isCritical"] = (isCritical ? 1 : 0) as CKRecordValue
+        record["createdAt"] = createdAt as CKRecordValue
+        record["updatedAt"] = updatedAt as CKRecordValue
+        return record
     }
 
     var isCurrentlyActive: Bool {

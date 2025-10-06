@@ -15,6 +15,7 @@ class UserPreferences: ObservableObject {
     @AppStorage("hasCompletedOnboarding") var hasCompletedOnboarding: Bool = false
     @AppStorage("userName") var userName: String = ""
     @AppStorage("userGrade") var userGrade: String = ""
+    @AppStorage("isAdmin") var isAdmin: Bool = false
 
     // Store user's class schedule as JSON
     @Published var redWeekSchedule: [Int: UserClass] = [:] {
