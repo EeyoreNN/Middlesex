@@ -25,8 +25,8 @@ class CloudKitManager: ObservableObject {
     @Published var errorMessage: String?
 
     private init() {
-        // Replace with your actual CloudKit container identifier
-        container = CKContainer(identifier: "iCloud.com.middlesex.app")
+        // CloudKit container identifier matching entitlements
+        container = CKContainer(identifier: "iCloud.com.nicholasnoon.Middlesex")
         publicDatabase = container.publicCloudDatabase
     }
 

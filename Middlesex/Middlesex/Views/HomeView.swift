@@ -13,6 +13,7 @@ struct HomeView: View {
     @State private var tapCount = 0
     @State private var lastTapTime: Date?
     @State private var showingAdminCodeEntry = false
+    @State private var showingAnnouncementComposer = false
 
     var body: some View {
         NavigationView {
@@ -37,8 +38,58 @@ struct HomeView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding()
 
+                    // Admin tools
+                    if preferences.isAdmin {
+                        VStack(spacing: 12) {
+                            HStack {
+                                Image(systemName: "crown.fill")
+                                    .foregroundColor(.yellow)
+                                Text("Admin Tools")
+                                    .font(.headline)
+                                    .foregroundColor(MiddlesexTheme.textDark)
+                                Spacer()
+                            }
+                            .padding(.horizontal)
+
+                            Button {
+                                showingAnnouncementComposer = true
+                            } label: {
+                                HStack {
+                                    Image(systemName: "megaphone.fill")
+                                    Text("Create Announcement")
+                                    Spacer()
+                                    Image(systemName: "chevron.right")
+                                }
+                                .font(.headline)
+                                .foregroundColor(.white)
+                                .padding()
+                                .background(MiddlesexTheme.primaryRed)
+                                .cornerRadius(12)
+                            }
+                            .padding(.horizontal)
+                        }
+                        .padding(.vertical, 12)
+                        .background(Color.yellow.opacity(0.1))
+                        .cornerRadius(12)
+                        .padding(.horizontal)
+                    }
+
                     // TEMPORARY: Dev tools
                     VStack(spacing: 8) {
+                        Button {
+                            showingAdminCodeEntry = true
+                        } label: {
+                            HStack {
+                                Image(systemName: "key.fill")
+                                Text("Admin Code Entry (Dev Only)")
+                            }
+                            .font(.caption)
+                            .foregroundColor(.white)
+                            .padding()
+                            .background(Color.red)
+                            .cornerRadius(10)
+                        }
+
                         Button {
                             preferences.clearAllData()
                         } label: {
@@ -146,16 +197,19 @@ struct HomeView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .principal) {
-                    Image(systemName: "building.columns.fill")
-                        .font(.title3)
-                        .foregroundColor(MiddlesexTheme.primaryRed)
-                        .onTapGesture {
-                            handleLogoTap()
-                        }
+                    Button(action: handleLogoTap) {
+                        Image(systemName: "building.columns.fill")
+                            .font(.title3)
+                            .foregroundColor(MiddlesexTheme.primaryRed)
+                    }
+                    .buttonStyle(.plain)
                 }
             }
             .sheet(isPresented: $showingAdminCodeEntry) {
                 AdminCodeEntryView()
+            }
+            .sheet(isPresented: $showingAnnouncementComposer) {
+                AnnouncementComposerView()
             }
         }
     }
@@ -171,8 +225,11 @@ struct HomeView: View {
         tapCount += 1
         lastTapTime = now
 
+        print("🔔 Logo tap \(tapCount)/10")
+
         // Show admin code entry after 10 taps
         if tapCount >= 10 {
+            print("✅ Opening admin code entry!")
             showingAdminCodeEntry = true
             tapCount = 0
         }

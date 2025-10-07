@@ -143,26 +143,39 @@ struct AdminCodeEntryView: View {
 
         // Save to CloudKit
         Task {
-            let database = CKContainer.default().publicCloudDatabase
-            try? await database.save(code.toRecord())
-            print("✅ Admin code generated: \(code.code)")
+            do {
+                let container = CKContainer(identifier: "iCloud.com.nicholasnoon.Middlesex")
+                let database = container.publicCloudDatabase
+                _ = try await database.save(code.toRecord())
+                print("✅ Admin code generated: \(code.code)")
+            } catch {
+                print("❌ Failed to save admin code: \(error.localizedDescription)")
+            }
         }
     }
 
     private func claimAdminAccess() {
+        guard enteredCode.count == 8 else {
+            errorMessage = "Code must be 8 digits"
+            return
+        }
+
         isValidating = true
         errorMessage = nil
+        print("🔍 Validating code: \(enteredCode)")
 
         Task {
             do {
-                let database = CKContainer.default().publicCloudDatabase
+                let container = CKContainer(identifier: "iCloud.com.nicholasnoon.Middlesex")
+                let database = container.publicCloudDatabase
+                print("📦 Using container: \(container.containerIdentifier ?? "default")")
 
                 // Query for the code
                 let predicate = NSPredicate(format: "code == %@", enteredCode)
                 let query = CKQuery(recordType: "AdminCode", predicate: predicate)
 
                 let results = try await database.records(matching: query)
-                guard let record = results.matchResults.first?.1.get() else {
+                guard let record = try results.matchResults.first?.1.get() else {
                     await MainActor.run {
                         errorMessage = "Invalid code"
                         isValidating = false
@@ -181,23 +194,13 @@ struct AdminCodeEntryView: View {
 
                 if !adminCode.isValid {
                     await MainActor.run {
-                        if adminCode.isUsed {
-                            errorMessage = "Code already used"
-                        } else {
-                            errorMessage = "Code expired"
-                        }
+                        errorMessage = "Code expired"
                         isValidating = false
                     }
                     return
                 }
 
-                // Mark code as used
-                record["isUsed"] = 1 as CKRecordValue
-                record["usedBy"] = preferences.userName as CKRecordValue
-                record["usedAt"] = Date() as CKRecordValue
-                try await database.save(record)
-
-                // Grant admin access
+                // Grant admin access (code is valid and not expired)
                 await MainActor.run {
                     preferences.isAdmin = true
                     isValidating = false
@@ -208,7 +211,8 @@ struct AdminCodeEntryView: View {
 
             } catch {
                 await MainActor.run {
-                    errorMessage = "Error validating code: \(error.localizedDescription)"
+                    print("❌ CloudKit error: \(error)")
+                    errorMessage = "Error: \(error.localizedDescription)"
                     isValidating = false
                 }
             }

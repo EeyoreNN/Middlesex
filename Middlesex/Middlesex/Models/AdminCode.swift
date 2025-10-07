@@ -14,12 +14,9 @@ struct AdminCode: Identifiable {
     let generatedBy: String
     let generatedAt: Date
     let expiresAt: Date
-    var isUsed: Bool
-    var usedBy: String?
-    var usedAt: Date?
 
     var isValid: Bool {
-        !isUsed && Date() < expiresAt
+        Date() < expiresAt
     }
 
     // Generate random 8-digit code
@@ -36,10 +33,7 @@ struct AdminCode: Identifiable {
             code: generateCode(),
             generatedBy: generatedBy,
             generatedAt: now,
-            expiresAt: now.addingTimeInterval(2 * 60 * 60), // 2 hours
-            isUsed: false,
-            usedBy: nil,
-            usedAt: nil
+            expiresAt: now.addingTimeInterval(2 * 60 * 60) // 2 hours
         )
     }
 
@@ -51,13 +45,6 @@ struct AdminCode: Identifiable {
         record["generatedBy"] = generatedBy as CKRecordValue
         record["generatedAt"] = generatedAt as CKRecordValue
         record["expiresAt"] = expiresAt as CKRecordValue
-        record["isUsed"] = (isUsed ? 1 : 0) as CKRecordValue
-        if let usedBy = usedBy {
-            record["usedBy"] = usedBy as CKRecordValue
-        }
-        if let usedAt = usedAt {
-            record["usedAt"] = usedAt as CKRecordValue
-        }
         return record
     }
 
@@ -76,20 +63,14 @@ struct AdminCode: Identifiable {
         self.generatedBy = generatedBy
         self.generatedAt = generatedAt
         self.expiresAt = expiresAt
-        self.isUsed = (record["isUsed"] as? Int64 ?? 0) != 0
-        self.usedBy = record["usedBy"] as? String
-        self.usedAt = record["usedAt"] as? Date
     }
 
     // Direct initializer
-    init(id: String, code: String, generatedBy: String, generatedAt: Date, expiresAt: Date, isUsed: Bool, usedBy: String?, usedAt: Date?) {
+    init(id: String, code: String, generatedBy: String, generatedAt: Date, expiresAt: Date) {
         self.id = id
         self.code = code
         self.generatedBy = generatedBy
         self.generatedAt = generatedAt
         self.expiresAt = expiresAt
-        self.isUsed = isUsed
-        self.usedBy = usedBy
-        self.usedAt = usedAt
     }
 }
