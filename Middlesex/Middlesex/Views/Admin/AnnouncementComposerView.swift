@@ -11,6 +11,7 @@ import CloudKit
 struct AnnouncementComposerView: View {
     @Environment(\.dismiss) var dismiss
     @StateObject private var preferences = UserPreferences.shared
+    @StateObject private var cloudKitManager = CloudKitManager.shared
 
     @State private var title = ""
     @State private var message = ""
@@ -193,6 +194,11 @@ struct AnnouncementComposerView: View {
                     print("🚨 Sending critical notification...")
                     await sendCriticalNotification(for: announcement)
                 }
+
+                // Refresh announcements list
+                print("🔄 Refreshing announcements list...")
+                await cloudKitManager.fetchActiveAnnouncements()
+                print("📊 Announcements count after refresh: \(cloudKitManager.announcements.count)")
 
                 await MainActor.run {
                     isSending = false
