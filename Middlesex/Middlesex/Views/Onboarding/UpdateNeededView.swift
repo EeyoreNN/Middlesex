@@ -90,7 +90,7 @@ struct UpdateNeededView: View {
                             .foregroundColor(MiddlesexTheme.primaryRed)
                             .frame(maxWidth: .infinity)
                             .padding()
-                            .background(Color.white)
+                            .background(MiddlesexTheme.cardBackground)
                             .cornerRadius(12)
                             .padding(.horizontal, 30)
                     }

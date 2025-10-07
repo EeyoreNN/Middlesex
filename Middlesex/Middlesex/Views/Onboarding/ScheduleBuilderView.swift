@@ -68,7 +68,7 @@ struct ScheduleBuilderView: View {
                 }
                 .padding()
             }
-            .background(Color.white)
+            .background(MiddlesexTheme.cardBackground)
             .cornerRadius(30, corners: [.topLeft, .topRight])
 
             // Complete button
@@ -80,7 +80,7 @@ struct ScheduleBuilderView: View {
                     .foregroundColor(MiddlesexTheme.primaryRed)
                     .frame(maxWidth: .infinity)
                     .padding()
-                    .background(Color.white)
+                    .background(MiddlesexTheme.cardBackground)
                     .cornerRadius(12)
                     .padding(.horizontal)
             }

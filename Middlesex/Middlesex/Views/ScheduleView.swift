@@ -151,7 +151,7 @@ struct ScheduleBlockCard: View {
                 VStack(alignment: .leading, spacing: 6) {
                     Text(userClass.className)
                         .font(.headline)
-                        .foregroundColor(MiddlesexTheme.textDark)
+                        .foregroundColor(MiddlesexTheme.textPrimary)
 
                     HStack(spacing: 12) {
                         Label(userClass.teacher, systemImage: "person.fill")
@@ -284,7 +284,7 @@ struct SchedulePeriodCard: View {
                 VStack(alignment: .leading, spacing: 6) {
                     Text(userClass.className)
                         .font(.headline)
-                        .foregroundColor(MiddlesexTheme.textDark)
+                        .foregroundColor(MiddlesexTheme.textPrimary)
 
                     HStack(spacing: 12) {
                         Label(userClass.teacher, systemImage: "person.fill")

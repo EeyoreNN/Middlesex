@@ -181,7 +181,7 @@ struct UpNextCard: View {
 
                 Text("\(block.block) Block")
                     .font(.headline)
-                    .foregroundColor(MiddlesexTheme.textDark)
+                    .foregroundColor(MiddlesexTheme.textPrimary)
 
                 Text("\(block.startTime) - \(block.endTime) • \(timeUntilStart)")
                     .font(.caption)
@@ -191,7 +191,7 @@ struct UpNextCard: View {
             Spacer()
         }
         .padding(16)
-        .background(Color.white)
+        .background(MiddlesexTheme.cardBackground)
         .cornerRadius(16)
         .shadow(color: Color.black.opacity(0.08), radius: 4, x: 0, y: 2)
     }
@@ -207,7 +207,7 @@ struct NoClassCard: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text("No Class Right Now")
                     .font(.headline)
-                    .foregroundColor(MiddlesexTheme.textDark)
+                    .foregroundColor(MiddlesexTheme.textPrimary)
 
                 Text("Enjoy your free time!")
                     .font(.caption)
@@ -217,7 +217,7 @@ struct NoClassCard: View {
             Spacer()
         }
         .padding(16)
-        .background(Color.white)
+        .background(MiddlesexTheme.cardBackground)
         .cornerRadius(16)
         .shadow(color: Color.black.opacity(0.08), radius: 4, x: 0, y: 2)
     }

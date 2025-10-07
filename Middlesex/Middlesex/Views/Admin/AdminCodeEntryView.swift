@@ -29,7 +29,7 @@ struct AdminCodeEntryView: View {
 
                 Text("Admin Access")
                     .font(.largeTitle.bold())
-                    .foregroundColor(MiddlesexTheme.textDark)
+                    .foregroundColor(MiddlesexTheme.textPrimary)
 
                 // Show code generator for Nick Noon
                 if preferences.userName == "Nick Noon" {
@@ -59,7 +59,7 @@ struct AdminCodeEntryView: View {
                                     .font(.system(size: 36, weight: .bold, design: .monospaced))
                                     .foregroundColor(MiddlesexTheme.primaryRed)
                                     .padding()
-                                    .background(Color.gray.opacity(0.1))
+                                    .background(Color(UIColor.tertiarySystemBackground))
                                     .cornerRadius(12)
 
                                 Text("Expires in 2 hours")

@@ -251,7 +251,7 @@ struct SportsEventCard: View {
             }
             .padding()
         }
-        .background(Color.white)
+        .background(MiddlesexTheme.cardBackground)
         .cornerRadius(12)
         .shadow(color: Color.black.opacity(0.05), radius: 5, x: 0, y: 2)
     }
@@ -301,7 +301,7 @@ struct SportsResultCard: View {
 
                     Text("\(event.middlesexScore)")
                         .font(.system(size: 36, weight: .bold))
-                        .foregroundColor(MiddlesexTheme.textDark)
+                        .foregroundColor(MiddlesexTheme.textPrimary)
                 }
                 .frame(maxWidth: .infinity)
 
@@ -316,13 +316,13 @@ struct SportsResultCard: View {
 
                     Text("\(event.opponentScore)")
                         .font(.system(size: 36, weight: .bold))
-                        .foregroundColor(MiddlesexTheme.textDark)
+                        .foregroundColor(MiddlesexTheme.textPrimary)
                 }
                 .frame(maxWidth: .infinity)
             }
             .padding()
         }
-        .background(Color.white)
+        .background(MiddlesexTheme.cardBackground)
         .cornerRadius(12)
         .shadow(color: Color.black.opacity(0.05), radius: 5, x: 0, y: 2)
     }
@@ -404,7 +404,7 @@ struct TeamCard: View {
             }
         }
         .padding()
-        .background(Color.white)
+        .background(MiddlesexTheme.cardBackground)
         .cornerRadius(12)
         .shadow(color: Color.black.opacity(0.05), radius: 5, x: 0, y: 2)
     }

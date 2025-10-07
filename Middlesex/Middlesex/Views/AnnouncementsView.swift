@@ -181,7 +181,7 @@ struct AnnouncementCard: View {
 
                         Text(announcement.title)
                             .font(.headline)
-                            .foregroundColor(MiddlesexTheme.textDark)
+                            .foregroundColor(MiddlesexTheme.textPrimary)
                     }
 
                     HStack {
@@ -212,7 +212,7 @@ struct AnnouncementCard: View {
                 .lineLimit(3)
         }
         .padding()
-        .background(Color.white)
+        .background(MiddlesexTheme.cardBackground)
         .cornerRadius(12)
         .shadow(color: Color.black.opacity(0.05), radius: 5, x: 0, y: 2)
     }

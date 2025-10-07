@@ -19,7 +19,7 @@ struct MenuView: View {
                 DatePicker("Select Date", selection: $selectedDate, displayedComponents: .date)
                     .datePickerStyle(.graphical)
                     .padding()
-                    .background(Color.white)
+                    .background(MiddlesexTheme.cardBackground)
 
                 // Meal type selector
                 Picker("Meal Type", selection: $selectedMealType) {
@@ -155,7 +155,7 @@ struct MenuItemCard: View {
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.white)
+        .background(MiddlesexTheme.cardBackground)
         .cornerRadius(12)
         .shadow(color: Color.black.opacity(0.05), radius: 5, x: 0, y: 2)
     }

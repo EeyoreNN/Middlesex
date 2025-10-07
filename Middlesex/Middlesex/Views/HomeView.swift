@@ -27,7 +27,7 @@ struct HomeView: View {
 
                         Text(preferences.userName.isEmpty ? "Student" : preferences.userName)
                             .font(.largeTitle.bold())
-                            .foregroundColor(MiddlesexTheme.textDark)
+                            .foregroundColor(MiddlesexTheme.textPrimary)
 
                         if !preferences.userGrade.isEmpty {
                             Text(preferences.userGrade)
@@ -46,7 +46,7 @@ struct HomeView: View {
                                     .foregroundColor(.yellow)
                                 Text("Admin Tools")
                                     .font(.headline)
-                                    .foregroundColor(MiddlesexTheme.textDark)
+                                    .foregroundColor(MiddlesexTheme.textPrimary)
                                 Spacer()
                             }
                             .padding(.horizontal)
@@ -295,7 +295,7 @@ struct QuickStatCard: View {
             VStack(spacing: 4) {
                 Text(value)
                     .font(.title3.bold())
-                    .foregroundColor(MiddlesexTheme.textDark)
+                    .foregroundColor(MiddlesexTheme.textPrimary)
 
                 Text(title)
                     .font(.caption)
@@ -304,7 +304,7 @@ struct QuickStatCard: View {
         }
         .frame(maxWidth: .infinity)
         .padding()
-        .background(Color.white)
+        .background(MiddlesexTheme.cardBackground)
         .cornerRadius(12)
         .shadow(color: Color.black.opacity(0.05), radius: 5, x: 0, y: 2)
     }
@@ -394,7 +394,7 @@ struct AnnouncementRowCompact: View {
             Spacer()
         }
         .padding()
-        .background(Color.white)
+        .background(MiddlesexTheme.cardBackground)
         .cornerRadius(10)
         .shadow(color: Color.black.opacity(0.05), radius: 3, x: 0, y: 1)
     }

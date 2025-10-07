@@ -149,7 +149,7 @@ struct ChorusQuestionView: View {
                     .foregroundColor(MiddlesexTheme.primaryRed)
                     .frame(maxWidth: .infinity)
                     .padding()
-                    .background(Color.white)
+                    .background(MiddlesexTheme.cardBackground)
                     .cornerRadius(12)
                 }
 
@@ -282,7 +282,7 @@ struct ExtendedBlockQuestionView: View {
                     .foregroundColor(MiddlesexTheme.primaryRed)
                     .frame(maxWidth: .infinity)
                     .padding()
-                    .background(Color.white)
+                    .background(MiddlesexTheme.cardBackground)
                     .cornerRadius(12)
                 }
 
