@@ -146,10 +146,13 @@ struct AdminCodeEntryView: View {
             do {
                 let container = CKContainer(identifier: "iCloud.com.nicholasnoon.Middlesex")
                 let database = container.publicCloudDatabase
-                _ = try await database.save(code.toRecord())
-                print("✅ Admin code generated: \(code.code)")
+                print("💾 Saving code to CloudKit (public database): \(code.code)")
+                let savedRecord = try await database.save(code.toRecord())
+                print("✅ Admin code saved successfully: \(code.code)")
+                print("📝 Record ID: \(savedRecord.recordID.recordName)")
             } catch {
-                print("❌ Failed to save admin code: \(error.localizedDescription)")
+                print("❌ Failed to save admin code: \(error)")
+                print("❌ Error details: \(error.localizedDescription)")
             }
         }
     }
@@ -168,16 +171,27 @@ struct AdminCodeEntryView: View {
             do {
                 let container = CKContainer(identifier: "iCloud.com.nicholasnoon.Middlesex")
                 let database = container.publicCloudDatabase
-                print("📦 Using container: \(container.containerIdentifier ?? "default")")
+                print("📦 Using container (public database): \(container.containerIdentifier ?? "default")")
 
                 // Query for the code
+                print("🔍 Searching for code: \(enteredCode)")
+
+                // First check if any AdminCode records exist
+                let allPredicate = NSPredicate(value: true)
+                let allQuery = CKQuery(recordType: "AdminCode", predicate: allPredicate)
+                let allResults = try await database.records(matching: allQuery)
+                print("📊 Total AdminCode records: \(allResults.matchResults.count)")
+
+                // Now search for specific code
                 let predicate = NSPredicate(format: "code == %@", enteredCode)
                 let query = CKQuery(recordType: "AdminCode", predicate: predicate)
-
                 let results = try await database.records(matching: query)
+                print("📊 Found \(results.matchResults.count) results for '\(enteredCode)'")
+
                 guard let record = try results.matchResults.first?.1.get() else {
                     await MainActor.run {
-                        errorMessage = "Invalid code"
+                        print("❌ No matching code found in CloudKit")
+                        errorMessage = "Invalid code (not found in database)"
                         isValidating = false
                     }
                     return

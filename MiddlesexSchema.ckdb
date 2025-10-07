@@ -133,6 +133,7 @@ DEFINE SCHEMA
         isUsed          INT64 QUERYABLE,
         usedBy          STRING,
         usedAt          TIMESTAMP,
-        GRANT READ TO "_world",
-        GRANT WRITE TO "_creator"
+        GRANT CREATE TO "_icloud",
+        GRANT READ TO "_icloud",
+        GRANT WRITE TO "_icloud"
     );

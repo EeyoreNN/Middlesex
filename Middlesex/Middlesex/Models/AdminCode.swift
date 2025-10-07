@@ -45,6 +45,7 @@ struct AdminCode: Identifiable {
         record["generatedBy"] = generatedBy as CKRecordValue
         record["generatedAt"] = generatedAt as CKRecordValue
         record["expiresAt"] = expiresAt as CKRecordValue
+        record["isUsed"] = 0 as CKRecordValue // Always start as unused
         return record
     }
 
