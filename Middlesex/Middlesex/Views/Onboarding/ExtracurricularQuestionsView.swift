@@ -241,7 +241,7 @@ struct ExtendedBlockQuestionView: View {
             Spacer()
 
             VStack(spacing: 20) {
-                Image(systemName: "clock.badge.plus")
+                Image(systemName: "clock.badge")
                     .font(.system(size: 80))
                     .foregroundColor(.white)
 
