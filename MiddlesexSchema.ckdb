@@ -65,8 +65,9 @@ DEFINE SCHEMA
         isCritical      INT64 QUERYABLE,
         createdAt       TIMESTAMP,
         updatedAt       TIMESTAMP,
-        GRANT READ TO "_world",
-        GRANT WRITE TO "_creator"
+        GRANT CREATE TO "_icloud",
+        GRANT READ TO "_icloud",
+        GRANT WRITE TO "_icloud"
     );
 
     RECORD TYPE SportsEvent (
