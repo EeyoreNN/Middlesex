@@ -9,78 +9,38 @@ import SwiftUI
 
 struct ScheduleView: View {
     @StateObject private var preferences = UserPreferences.shared
-    @State private var selectedWeek: ClassSchedule.WeekType
     @State private var showingEditSchedule = false
+    @State private var currentTime = Date()
 
-    init() {
-        // Determine current week
-        let weekNumber = Calendar.current.component(.weekOfYear, from: Date())
-        _selectedWeek = State(initialValue: weekNumber % 2 == 0 ? .red : .white)
+    let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
+
+    var currentWeekType: ClassSchedule.WeekType {
+        DailySchedule.getCurrentWeekType()
     }
 
     var body: some View {
         NavigationView {
-            VStack(spacing: 0) {
-                // Week selector
-                HStack(spacing: 0) {
-                    ForEach(ClassSchedule.WeekType.allCases, id: \.self) { week in
-                        Button {
-                            withAnimation {
-                                selectedWeek = week
-                            }
-                        } label: {
-                            VStack(spacing: 8) {
-                                Text("\(week.displayName) Week")
-                                    .font(.headline)
-                                    .foregroundColor(selectedWeek == week ? .white : MiddlesexTheme.textDark)
-                                    .padding(.vertical, 12)
-                                    .frame(maxWidth: .infinity)
-                                    .background(selectedWeek == week ? weekColor(week) : Color.clear)
-                            }
-                        }
+            ScrollView {
+                VStack(spacing: 12) {
+                    // Live current class view
+                    CurrentClassLiveView()
+
+                    let todaySchedule = DailySchedule.getSchedule(for: currentTime, weekType: currentWeekType)
+
+                    ForEach(todaySchedule) { blockTime in
+                        ScheduleBlockCard(
+                            blockTime: blockTime,
+                            userClass: getUserClassForBlock(blockTime.block),
+                            weekType: currentWeekType
+                        )
                     }
+
+                    Spacer(minLength: 80)
                 }
-                .background(MiddlesexTheme.secondaryGray)
-                .cornerRadius(10)
                 .padding()
-
-                // Current week indicator
-                if getCurrentWeekType() == selectedWeek {
-                    Text("Current Week")
-                        .font(.caption)
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .background(MiddlesexTheme.primaryRed)
-                        .cornerRadius(12)
-                        .padding(.bottom, 8)
-                }
-
-                // Schedule list
-                ScrollView {
-                    VStack(spacing: 12) {
-                        // Live current class view
-                        CurrentClassLiveView()
-
-                        let todaySchedule = DailySchedule.getSchedule(for: Date())
-
-                        ForEach(todaySchedule) { blockTime in
-                            if let userClass = getUserClassForBlock(blockTime.block) {
-                                ScheduleBlockCard(
-                                    blockTime: blockTime,
-                                    userClass: userClass,
-                                    weekType: selectedWeek
-                                )
-                            }
-                        }
-
-                        Spacer(minLength: 80)
-                    }
-                    .padding()
-                }
-                .background(MiddlesexTheme.background)
             }
-            .navigationTitle("Schedule")
+            .background(MiddlesexTheme.background)
+            .navigationTitle("Today's Schedule")
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button {
@@ -92,18 +52,12 @@ struct ScheduleView: View {
                 }
             }
             .sheet(isPresented: $showingEditSchedule) {
-                ScheduleEditorView(selectedWeek: $selectedWeek)
+                ScheduleEditorView()
+            }
+            .onReceive(timer) { time in
+                currentTime = time
             }
         }
-    }
-
-    private func weekColor(_ week: ClassSchedule.WeekType) -> Color {
-        week == .red ? MiddlesexTheme.redWeekColor : MiddlesexTheme.whiteWeekColor
-    }
-
-    private func getCurrentWeekType() -> ClassSchedule.WeekType {
-        let weekNumber = Calendar.current.component(.weekOfYear, from: Date())
-        return weekNumber % 2 == 0 ? .red : .white
     }
 
     private func getUserClassForBlock(_ block: String) -> UserClass? {
@@ -119,7 +73,7 @@ struct ScheduleView: View {
             return nil
         }
 
-        return preferences.getClass(for: period, weekType: selectedWeek)
+        return preferences.getClass(for: period, weekType: currentWeekType)
     }
 }
 
@@ -229,6 +183,46 @@ struct ScheduleBlockCard: View {
                         .foregroundColor(.secondary)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
+            } else if blockTime.block == "Break" {
+                // Break
+                HStack {
+                    Image(systemName: "cup.and.saucer")
+                        .foregroundColor(.secondary)
+                    Text("Break")
+                        .font(.headline)
+                        .foregroundColor(.secondary)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            } else if blockTime.block == "Senate" {
+                // Senate
+                HStack {
+                    Image(systemName: "building.columns")
+                        .foregroundColor(.secondary)
+                    Text("Senate")
+                        .font(.headline)
+                        .foregroundColor(.secondary)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            } else if blockTime.block == "Meet" {
+                // Meetings
+                HStack {
+                    Image(systemName: "calendar")
+                        .foregroundColor(.secondary)
+                    Text("Meetings")
+                        .font(.headline)
+                        .foregroundColor(.secondary)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            } else if blockTime.block == "ChChor" {
+                // Chapel Chorus
+                HStack {
+                    Image(systemName: "music.note")
+                        .foregroundColor(.secondary)
+                    Text("Chapel Chorus")
+                        .font(.headline)
+                        .foregroundColor(.secondary)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
             } else {
                 // Empty period or other
                 Text("Free Period")
@@ -331,13 +325,6 @@ struct SchedulePeriodCard: View {
 
 struct ScheduleEditorView: View {
     @Environment(\.dismiss) var dismiss
-    @Binding var selectedWeek: ClassSchedule.WeekType
-    @State private var editingWeek: ClassSchedule.WeekType
-
-    init(selectedWeek: Binding<ClassSchedule.WeekType>) {
-        self._selectedWeek = selectedWeek
-        self._editingWeek = State(initialValue: selectedWeek.wrappedValue)
-    }
 
     var body: some View {
         NavigationView {

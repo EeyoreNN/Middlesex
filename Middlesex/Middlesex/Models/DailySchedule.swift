@@ -77,37 +77,43 @@ struct DailySchedule {
         case white
     }
 
-    // Red Week Schedule (White Week is identical)
-    static let schedules: [String: [BlockTime]] = [
+    // Red Week Schedules
+    static let redWeekSchedules: [String: [BlockTime]] = [
         "Monday": [
             BlockTime(block: "Ax", startTime: "8:00", endTime: "8:25"),
             BlockTime(block: "A", startTime: "8:25", endTime: "9:05"),
             BlockTime(block: "F", startTime: "9:10", endTime: "9:50"),
+            BlockTime(block: "Break", startTime: "9:55", endTime: "10:10"),
             BlockTime(block: "G", startTime: "10:15", endTime: "10:55"),
             BlockTime(block: "D", startTime: "11:00", endTime: "11:40"),
             BlockTime(block: "Dx", startTime: "11:40", endTime: "12:05"),
             BlockTime(block: "Lunch", startTime: "12:05", endTime: "12:55"),
             BlockTime(block: "Ex", startTime: "12:55", endTime: "1:20"),
             BlockTime(block: "E", startTime: "1:20", endTime: "2:00"),
-            BlockTime(block: "C", startTime: "2:05", endTime: "2:45")
+            BlockTime(block: "C", startTime: "2:05", endTime: "2:45"),
+            BlockTime(block: "Senate", startTime: "2:50", endTime: "3:30")
         ],
 
         "Tuesday": [
+            BlockTime(block: "Gx", startTime: "8:00", endTime: "8:25"),
             BlockTime(block: "G", startTime: "8:25", endTime: "9:05"),
-            BlockTime(block: "A", startTime: "9:10", endTime: "9:50"),
-            BlockTime(block: "CommT", startTime: "9:55", endTime: "10:55"),
+            BlockTime(block: "CommT", startTime: "9:10", endTime: "9:50"),
             BlockTime(block: "C", startTime: "11:00", endTime: "11:40"),
+            BlockTime(block: "Cx", startTime: "11:40", endTime: "12:05"),
             BlockTime(block: "Lunch", startTime: "12:05", endTime: "12:55"),
             BlockTime(block: "F", startTime: "12:55", endTime: "1:35"),
             BlockTime(block: "D", startTime: "1:40", endTime: "2:20"),
-            BlockTime(block: "Cx", startTime: "2:45", endTime: "3:10")
+            BlockTime(block: "B", startTime: "2:25", endTime: "3:05"),
+            BlockTime(block: "Meet", startTime: "3:10", endTime: "3:30")
         ],
 
         "Wednesday": [
+            BlockTime(block: "Fx", startTime: "8:00", endTime: "8:25"),
             BlockTime(block: "F", startTime: "8:25", endTime: "9:05"),
             BlockTime(block: "E", startTime: "9:10", endTime: "9:50"),
             BlockTime(block: "Chapel", startTime: "9:55", endTime: "10:35"),
-            BlockTime(block: "G", startTime: "10:40", endTime: "11:20"),
+            BlockTime(block: "B", startTime: "10:40", endTime: "11:20"),
+            BlockTime(block: "Bx", startTime: "11:20", endTime: "11:45"),
             BlockTime(block: "Lunch", startTime: "11:45", endTime: "12:15"),
             BlockTime(block: "Athlet", startTime: "1:30", endTime: "3:30")
         ],
@@ -117,20 +123,27 @@ struct DailySchedule {
             BlockTime(block: "Ex", startTime: "9:30", endTime: "9:55"),
             BlockTime(block: "E", startTime: "9:55", endTime: "10:35"),
             BlockTime(block: "G", startTime: "10:40", endTime: "11:20"),
+            BlockTime(block: "B", startTime: "11:25", endTime: "12:05"),
             BlockTime(block: "Lunch", startTime: "12:05", endTime: "12:55"),
             BlockTime(block: "Ax", startTime: "12:55", endTime: "1:20"),
             BlockTime(block: "A", startTime: "1:20", endTime: "2:00"),
-            BlockTime(block: "C", startTime: "2:05", endTime: "2:45")
+            BlockTime(block: "C", startTime: "2:05", endTime: "2:45"),
+            BlockTime(block: "Cx", startTime: "2:45", endTime: "3:10"),
+            BlockTime(block: "Meet", startTime: "3:15", endTime: "3:40")
         ],
 
         "Friday": [
+            BlockTime(block: "Bx", startTime: "8:00", endTime: "8:25"),
+            BlockTime(block: "B", startTime: "8:25", endTime: "9:05"),
             BlockTime(block: "D", startTime: "9:10", endTime: "9:50"),
             BlockTime(block: "Announ", startTime: "9:55", endTime: "10:25"),
             BlockTime(block: "E", startTime: "10:30", endTime: "11:10"),
+            BlockTime(block: "ChChor", startTime: "11:15", endTime: "12:15"),
             BlockTime(block: "Lunch", startTime: "12:05", endTime: "12:55"),
             BlockTime(block: "Fx", startTime: "12:55", endTime: "1:20"),
             BlockTime(block: "F", startTime: "1:20", endTime: "2:00"),
-            BlockTime(block: "A", startTime: "2:05", endTime: "2:45")
+            BlockTime(block: "A", startTime: "2:05", endTime: "2:45"),
+            BlockTime(block: "Meet", startTime: "2:50", endTime: "3:15")
         ],
 
         "Saturday": [
@@ -138,12 +151,93 @@ struct DailySchedule {
             BlockTime(block: "D", startTime: "9:10", endTime: "9:50"),
             BlockTime(block: "C", startTime: "9:55", endTime: "10:35"),
             BlockTime(block: "G", startTime: "10:40", endTime: "11:20"),
+            BlockTime(block: "Gx", startTime: "11:20", endTime: "11:45"),
             BlockTime(block: "Lunch", startTime: "11:45", endTime: "12:30"),
             BlockTime(block: "Athlet", startTime: "1:30", endTime: "3:30")
         ]
     ]
 
-    static func getSchedule(for date: Date) -> [BlockTime] {
+    // White Week Schedules
+    static let whiteWeekSchedules: [String: [BlockTime]] = [
+        "Monday": [
+            BlockTime(block: "Ax", startTime: "8:00", endTime: "8:25"),
+            BlockTime(block: "A", startTime: "8:25", endTime: "9:05"),
+            BlockTime(block: "F", startTime: "9:10", endTime: "9:50"),
+            BlockTime(block: "Break", startTime: "9:55", endTime: "10:10"),
+            BlockTime(block: "G", startTime: "10:15", endTime: "10:55"),
+            BlockTime(block: "D", startTime: "11:00", endTime: "11:40"),
+            BlockTime(block: "Dx", startTime: "11:40", endTime: "12:05"),
+            BlockTime(block: "Lunch", startTime: "12:05", endTime: "12:55"),
+            BlockTime(block: "Ex", startTime: "12:55", endTime: "1:20"),
+            BlockTime(block: "E", startTime: "1:20", endTime: "2:00"),
+            BlockTime(block: "C", startTime: "2:05", endTime: "2:45"),
+            BlockTime(block: "Senate", startTime: "2:50", endTime: "3:30")
+        ],
+
+        "Tuesday": [
+            BlockTime(block: "Gx", startTime: "8:00", endTime: "8:25"),
+            BlockTime(block: "G", startTime: "8:25", endTime: "9:05"),
+            BlockTime(block: "CommT", startTime: "9:10", endTime: "9:50"),
+            BlockTime(block: "C", startTime: "11:00", endTime: "11:40"),
+            BlockTime(block: "Cx", startTime: "11:40", endTime: "12:05"),
+            BlockTime(block: "Lunch", startTime: "12:05", endTime: "12:55"),
+            BlockTime(block: "F", startTime: "12:55", endTime: "1:35"),
+            BlockTime(block: "D", startTime: "1:40", endTime: "2:20"),
+            BlockTime(block: "B", startTime: "2:25", endTime: "3:05"),
+            BlockTime(block: "Meet", startTime: "3:10", endTime: "3:30")
+        ],
+
+        "Wednesday": [
+            BlockTime(block: "Dx", startTime: "8:00", endTime: "8:25"),
+            BlockTime(block: "D", startTime: "8:25", endTime: "9:05"),
+            BlockTime(block: "C", startTime: "9:10", endTime: "9:50"),
+            BlockTime(block: "Chapel", startTime: "9:55", endTime: "10:35"),
+            BlockTime(block: "G", startTime: "10:40", endTime: "11:20"),
+            BlockTime(block: "Gx", startTime: "11:20", endTime: "11:45"),
+            BlockTime(block: "Lunch", startTime: "11:45", endTime: "12:15"),
+            BlockTime(block: "Athlet", startTime: "1:30", endTime: "3:30")
+        ],
+
+        "Thursday": [
+            BlockTime(block: "FacMtg", startTime: "8:30", endTime: "9:25"),
+            BlockTime(block: "Ex", startTime: "9:30", endTime: "9:55"),
+            BlockTime(block: "E", startTime: "9:55", endTime: "10:35"),
+            BlockTime(block: "G", startTime: "10:40", endTime: "11:20"),
+            BlockTime(block: "B", startTime: "11:25", endTime: "12:05"),
+            BlockTime(block: "Lunch", startTime: "12:05", endTime: "12:55"),
+            BlockTime(block: "Ax", startTime: "12:55", endTime: "1:20"),
+            BlockTime(block: "A", startTime: "1:20", endTime: "2:00"),
+            BlockTime(block: "C", startTime: "2:05", endTime: "2:45"),
+            BlockTime(block: "Cx", startTime: "2:45", endTime: "3:10"),
+            BlockTime(block: "Meet", startTime: "3:15", endTime: "3:40")
+        ],
+
+        "Friday": [
+            BlockTime(block: "Bx", startTime: "8:00", endTime: "8:25"),
+            BlockTime(block: "B", startTime: "8:25", endTime: "9:05"),
+            BlockTime(block: "D", startTime: "9:10", endTime: "9:50"),
+            BlockTime(block: "Announ", startTime: "9:55", endTime: "10:25"),
+            BlockTime(block: "E", startTime: "10:30", endTime: "11:10"),
+            BlockTime(block: "ChChor", startTime: "11:15", endTime: "12:15"),
+            BlockTime(block: "Lunch", startTime: "12:05", endTime: "12:55"),
+            BlockTime(block: "Fx", startTime: "12:55", endTime: "1:20"),
+            BlockTime(block: "F", startTime: "1:20", endTime: "2:00"),
+            BlockTime(block: "A", startTime: "2:05", endTime: "2:45"),
+            BlockTime(block: "Meet", startTime: "2:50", endTime: "3:15")
+        ],
+
+        "Saturday": [
+            BlockTime(block: "Fx", startTime: "8:45", endTime: "9:10"),
+            BlockTime(block: "F", startTime: "9:10", endTime: "9:50"),
+            BlockTime(block: "E", startTime: "9:55", endTime: "10:35"),
+            BlockTime(block: "B", startTime: "10:40", endTime: "11:20"),
+            BlockTime(block: "Bx", startTime: "11:20", endTime: "11:45"),
+            BlockTime(block: "Lunch", startTime: "11:45", endTime: "12:30"),
+            BlockTime(block: "Athlet", startTime: "1:30", endTime: "3:30")
+        ]
+    ]
+
+    static func getSchedule(for date: Date, weekType: WeekType? = nil) -> [BlockTime] {
         let calendar = Calendar.current
         let weekday = calendar.component(.weekday, from: date)
 
@@ -159,7 +253,17 @@ struct DailySchedule {
         default: dayName = "Monday"
         }
 
+        // Determine week type if not provided
+        let currentWeekType = weekType ?? getCurrentWeekType()
+
+        // Return appropriate schedule based on week type
+        let schedules = currentWeekType == .red ? redWeekSchedules : whiteWeekSchedules
         return schedules[dayName] ?? []
+    }
+
+    static func getCurrentWeekType() -> WeekType {
+        let weekNumber = Calendar.current.component(.weekOfYear, from: Date())
+        return weekNumber % 2 == 0 ? .red : .white
     }
 
     static func getCurrentDayName() -> String {

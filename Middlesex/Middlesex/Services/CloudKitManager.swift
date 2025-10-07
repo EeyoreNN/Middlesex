@@ -70,10 +70,13 @@ class CloudKitManager: ObservableObject {
         errorMessage = nil
 
         let now = Date()
+        print("🔍 Fetching announcements with date: \(now)")
+
         let predicate = NSPredicate(
             format: "isActive == 1 AND publishDate <= %@ AND expiryDate >= %@",
             now as NSDate, now as NSDate
         )
+        print("🔍 Query predicate: \(predicate)")
 
         let query = CKQuery(recordType: "Announcement", predicate: predicate)
         query.sortDescriptors = [
@@ -83,9 +86,32 @@ class CloudKitManager: ObservableObject {
 
         do {
             let results = try await publicDatabase.records(matching: query)
-            let items = results.matchResults.compactMap { try? $0.1.get() }.compactMap { Announcement(record: $0) }
+            print("🔍 Found \(results.matchResults.count) raw results")
+
+            let items = results.matchResults.compactMap { result -> Announcement? in
+                do {
+                    let record = try result.1.get()
+                    print("📝 Record: \(record.recordID.recordName)")
+                    print("   - publishDate: \(record["publishDate"] as? Date ?? Date())")
+                    print("   - expiryDate: \(record["expiryDate"] as? Date ?? Date())")
+                    print("   - isActive: \(record["isActive"] as? Int64 ?? 0)")
+
+                    if let announcement = Announcement(record: record) {
+                        return announcement
+                    } else {
+                        print("   ⚠️ Failed to parse announcement from record")
+                        return nil
+                    }
+                } catch {
+                    print("   ❌ Error getting record: \(error)")
+                    return nil
+                }
+            }
+
+            print("✅ Successfully parsed \(items.count) announcements")
             self.announcements = items
         } catch {
+            print("❌ CloudKit query error: \(error)")
             errorMessage = "Failed to fetch announcements: \(error.localizedDescription)"
         }
 
