@@ -155,10 +155,14 @@ struct AnnouncementComposerView: View {
     }
 
     private func sendAnnouncement() {
-        guard canSend else { return }
+        guard canSend else {
+            print("⚠️ Cannot send - validation failed")
+            return
+        }
 
         isSending = true
         errorMessage = nil
+        print("📤 Starting announcement send...")
 
         let announcement = Announcement(
             title: title,
@@ -171,15 +175,22 @@ struct AnnouncementComposerView: View {
             isCritical: isCritical
         )
 
+        print("📋 Announcement created: \(announcement.title)")
+
         Task {
             do {
                 let container = CKContainer(identifier: "iCloud.com.nicholasnoon.Middlesex")
                 let database = container.publicCloudDatabase
+                print("📦 Using container: \(container.containerIdentifier ?? "unknown")")
+
                 let record = announcement.toRecord()
+                print("💾 Saving announcement to CloudKit...")
                 try await database.save(record)
+                print("✅ Saved to CloudKit successfully")
 
                 // Send critical alert if marked as critical
                 if isCritical {
+                    print("🚨 Sending critical notification...")
                     await sendCriticalNotification(for: announcement)
                 }
 
@@ -191,6 +202,7 @@ struct AnnouncementComposerView: View {
 
             } catch {
                 await MainActor.run {
+                    print("❌ Failed to send announcement: \(error)")
                     errorMessage = "Failed to send: \(error.localizedDescription)"
                     isSending = false
                 }

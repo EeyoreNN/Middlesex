@@ -28,12 +28,13 @@ struct SignInView: View {
 
                 // School branding
                 VStack(spacing: 16) {
-                    Image(systemName: "building.columns.fill")
+                    Image(systemName: "shield.fill")
                         .font(.system(size: 80))
                         .foregroundColor(.white)
+                        .symbolRenderingMode(.hierarchical)
 
-                    Text("Middlesex")
-                        .font(.system(size: 48, weight: .bold, design: .rounded))
+                    Text("Middlesex School")
+                        .font(.system(size: 42, weight: .bold, design: .rounded))
                         .foregroundColor(.white)
 
                     Text("Your School, Your Schedule")

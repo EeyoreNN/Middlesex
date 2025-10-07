@@ -198,9 +198,10 @@ struct HomeView: View {
             .toolbar {
                 ToolbarItem(placement: .principal) {
                     Button(action: handleLogoTap) {
-                        Image(systemName: "building.columns.fill")
+                        Image(systemName: "shield.fill")
                             .font(.title3)
                             .foregroundColor(MiddlesexTheme.primaryRed)
+                            .symbolRenderingMode(.hierarchical)
                     }
                     .buttonStyle(.plain)
                 }
