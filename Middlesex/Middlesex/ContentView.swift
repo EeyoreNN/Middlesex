@@ -12,18 +12,21 @@ struct ContentView: View {
 
     var body: some View {
         Group {
-            if !preferences.hasCompletedOnboarding {
-                // First time user - full onboarding
+            if !preferences.isSignedIn {
+                // Step 1: Sign in with Apple
+                SignInView()
+            } else if !preferences.hasCompletedOnboarding {
+                // Step 2: First time user - full onboarding
                 OnboardingView()
             } else if preferences.needsUpdate {
-                // Existing user needs to answer new questions
+                // Step 3: Existing user needs to answer new questions
                 UpdateNeededView(
                     missingQuestions: OnboardingVersion.missingQuestions(
                         currentVersion: preferences.onboardingVersion
                     )
                 )
             } else {
-                // All set - show main app
+                // Step 4: All set - show main app
                 MainTabView()
             }
         }

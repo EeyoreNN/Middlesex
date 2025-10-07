@@ -13,6 +13,9 @@ class UserPreferences: ObservableObject {
     static let shared = UserPreferences()
 
     @AppStorage("hasCompletedOnboarding") var hasCompletedOnboarding: Bool = false
+    @AppStorage("isSignedIn") var isSignedIn: Bool = false
+    @AppStorage("userIdentifier") var userIdentifier: String = "" // Apple User ID
+    @AppStorage("userEmail") var userEmail: String = ""
     @AppStorage("userName") var userName: String = ""
     @AppStorage("userGrade") var userGrade: String = ""
     @AppStorage("isAdmin") var isAdmin: Bool = false
@@ -81,8 +84,12 @@ class UserPreferences: ObservableObject {
 
     func clearAllData() {
         hasCompletedOnboarding = false
+        isSignedIn = false
+        userIdentifier = ""
+        userEmail = ""
         userName = ""
         userGrade = ""
+        isAdmin = false
         redWeekSchedule = [:]
         whiteWeekSchedule = [:]
     }
