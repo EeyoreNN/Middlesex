@@ -103,7 +103,7 @@ class LiveActivityManager: ObservableObject {
         do {
             let activity = try Activity.request(
                 attributes: attributes,
-                content: .init(state: initialState, staleDate: nil),
+                content: .init(state: initialState, staleDate: endDate),
                 pushType: nil
             )
 
@@ -156,7 +156,7 @@ class LiveActivityManager: ObservableObject {
         )
 
         await activity.update(
-            .init(state: updatedState, staleDate: nil)
+            .init(state: updatedState, staleDate: endDate)
         )
     }
 

@@ -1,68 +1,98 @@
-# CloudKit Schema Setup
+# CloudKit Configuration for Sports Live Activities
 
-## Current Schema File
-`MiddlesexSchema.ckdb` contains all record types for the app.
+This app uses ActivityKit with token-based push updates to keep sports Live Activities fresh. Follow the steps below to provision CloudKit schema, server-to-server updates, and push notification entitlements.
 
-## Recent Record Types Added
-- **AppSettings** - For storing OpenAI API key and other app-wide settings
-- **CustomClass** - For user-submitted custom class requests
-- **SpecialSchedule** - For admin-created special day schedules
+## 1. Update CloudKit Schema
 
-## How to Upload Schema to CloudKit
+Import `MiddlesexSchema.ckdb` into the development environment if you have not already done so. This schema now defines the following additional record types:
 
-### Step 1: Access CloudKit Dashboard
-1. Go to: https://icloud.developer.apple.com/dashboard
-2. Sign in with your Apple Developer account
-3. Select your app container: `iCloud.com.nicholasnoon.Middlesex`
+- `SportsLiveUpdate` – latest scoreboard update for each event
+- `SportsReporterClaim` – enforces a single reporter per event at a time
+- `SportsLiveSubscription` – maps Live Activity push tokens to events
 
-### Step 2: Import Schema
-1. Click on **Schema** in the left sidebar
-2. Make sure you're in **Development** environment
-3. Click **Import Schema** button (top right)
-4. Select the file: `MiddlesexSchema.ckdb`
-5. Review the changes
-6. Click **Import**
+After validating in development, deploy the schema changes to production.
 
-### Step 3: Verify Import
-After importing, verify these record types exist:
-- ✅ MenuItem
-- ✅ ClassSchedule
-- ✅ Announcement
-- ✅ SportsEvent
-- ✅ SportsTeam
-- ✅ AdminCode
-- ✅ SpecialSchedule
-- ✅ **AppSettings** (NEW)
-- ✅ **CustomClass** (NEW)
+## 2. Add New Record Fields
 
-### Step 4: Test in Development
-1. Run the app in simulator/device
-2. Try saving the OpenAI API key (Admin Dashboard → API Configuration)
-3. Check console logs for success
-4. Try submitting a custom class request
+Check that the following fields exist for each record type:
 
-### Step 5: Deploy to Production (When Ready)
-1. Go to Schema → Development
-2. Click **Deploy Schema Changes**
-3. Review changes carefully
-4. Click **Deploy to Production**
+### SportsLiveUpdate
+- `id` (String, indexed)
+- `eventId` (String, indexed)
+- `sport` (String)
+- `status` (String)
+- `homeScore`, `awayScore` (Int)
+- `periodLabel` (String)
+- `clockRemaining` (Double)
+- `clockLastUpdated` (Date)
+- `possession` (String)
+- `lastEventSummary`, `lastEventDetail` (String)
+- `highlightIcon` (String)
+- `topFinishersJSON`, `teamResultsJSON` (String)
+- `summary` (String)
+- `reporterId`, `reporterName` (String)
+- `createdAt`, `updatedAt` (Date)
 
-⚠️ **Warning**: Production schema changes are permanent and affect all users!
+### SportsReporterClaim
+- `id` (String, indexed)
+- `eventId` (String, indexed)
+- `reporterId` (String)
+- `reporterName` (String)
+- `claimedAt` (Date)
+- `expiresAt` (Date)
+- `status` (String)
 
-## Current Schema Status
-- Development: ⚠️ **Needs Update** (AppSettings and CustomClass missing)
-- Production: ⚠️ **Needs Update** (AppSettings and CustomClass missing)
+### SportsLiveSubscription
+- `id` (String, indexed)
+- `eventId` (String, indexed)
+- `userId` (String)
+- `sport` (String)
+- `pushToken` (String)
+- `deviceName` (String)
+- `createdAt` (Date)
 
-## What Happens If Schema Is Not Uploaded?
-- OpenAI API key cannot be saved to CloudKit (will only save locally)
-- Custom class submissions will fail
-- Users will see errors when trying to use these features
-- API key test will fail with "Unknown Item" error
+Grant read access to `_world` for updates and subscriptions so the device can pull them down.
 
-## Quick Fix for Testing Without CloudKit
-The app has fallback mechanisms:
-- API key can be stored in UserDefaults (local only)
-- API key can be set in Info.plist
-- Custom classes can be submitted but won't be saved
+## 3. Configure Push-to-Activity Updates
 
-However, for production use, **you must upload the schema to CloudKit**.
+1. Enable **Push Notifications** capability in your Xcode project for the app target and the widget extension.
+2. Under **Background Modes**, enable `Background fetch` and `Remote notifications`.
+3. In Apple Developer Center, create a **push notification key** or certificate for the app if you do not have one.
+4. In CloudKit Dashboard, go to **Containers → Middlesex → Development → Notifications** and enable server-to-server notifications.
+5. Configure server logic (Cloud Functions, server script, or CloudKit JS) to:
+   - Update the `SportsLiveUpdate` record with the new ContentState payload.
+   - Send an ActivityKit push to each registered `SportsLiveSubscription` token.
+
+Refer to Apple’s "Pushing Live Activity Updates" documentation for the JSON payload format. A minimal payload looks like this:
+
+```json
+{
+  "aps": {
+    "timestamp": 1736203200,
+    "event": "update"
+  },
+  "content-state": {
+    "status": "live",
+    "homeScore": 21,
+    "awayScore": 14,
+    "periodLabel": "Q3 08:12",
+    "lastEventSummary": "Touchdown – Middlesex",
+    "highlightIcon": "figure.american.football"
+  },
+  "dismissal-date": 1736206800
+}
+```
+
+## 4. Reporter Workflow
+
+- Reporters claim an event via the `SportsReporterClaim` record. Claims expire automatically after the configured duration.
+- Only one reporter can hold an active claim at a time. The reporter’s name appears on the Live Activity UI for transparency.
+
+## 5. Dev Testing Checklist
+
+- Ensure the device runs iOS 17.2 or later (Live Activity push updates require iOS 17.2+).
+- Start a Live Activity from the Sports view and verify the state persists after force-quitting the app.
+- Simulate server pushes using the `apns-push-type: activity` header and the Xcode "Send Live Activity Update" debug tool.
+- Confirm soccer, football, and cross country layouts render with sport-specific colors and data.
+
+Keep this file updated if the schema evolves.

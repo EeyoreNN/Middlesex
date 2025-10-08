@@ -53,6 +53,7 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Models/ClassActivityAttributes.swift,
+				Models/SportsActivityAttributes.swift,
 			);
 			target = B9C5A9232E946D6700AC0F88 /* MiddlesexLiveActivityExtension */;
 		};

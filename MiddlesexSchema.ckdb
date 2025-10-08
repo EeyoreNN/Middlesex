@@ -201,3 +201,73 @@ DEFINE SCHEMA
         GRANT READ TO "_icloud",
         GRANT WRITE TO "_icloud"
     );
+
+    RECORD TYPE SportsLiveUpdate (
+        "___createTime" TIMESTAMP,
+        "___createdBy"  REFERENCE,
+        "___etag"       STRING,
+        "___modTime"    TIMESTAMP,
+        "___modifiedBy" REFERENCE,
+        "___recordID"   REFERENCE QUERYABLE,
+        id              STRING QUERYABLE,
+        eventId         STRING QUERYABLE,
+        sport           STRING,
+        status          STRING,
+        homeScore       INT64,
+        awayScore       INT64,
+        periodLabel     STRING,
+        clockRemaining  DOUBLE,
+        clockLastUpdated TIMESTAMP,
+        possession      STRING,
+        lastEventSummary STRING,
+        lastEventDetail STRING,
+        highlightIcon   STRING,
+        topFinishersJSON STRING,
+        teamResultsJSON  STRING,
+        summary         STRING,
+        reporterId      STRING,
+        reporterName    STRING,
+        createdAt       TIMESTAMP SORTABLE,
+        updatedAt       TIMESTAMP SORTABLE,
+        GRANT CREATE TO "_icloud",
+        GRANT READ TO "_world",
+        GRANT WRITE TO "_icloud"
+    );
+
+    RECORD TYPE SportsReporterClaim (
+        "___createTime" TIMESTAMP,
+        "___createdBy"  REFERENCE,
+        "___etag"       STRING,
+        "___modTime"    TIMESTAMP,
+        "___modifiedBy" REFERENCE,
+        "___recordID"   REFERENCE QUERYABLE,
+        id              STRING QUERYABLE,
+        eventId         STRING QUERYABLE,
+        reporterId      STRING,
+        reporterName    STRING,
+        claimedAt       TIMESTAMP,
+        expiresAt       TIMESTAMP,
+        status          STRING,
+        GRANT CREATE TO "_icloud",
+        GRANT READ TO "_world",
+        GRANT WRITE TO "_icloud"
+    );
+
+    RECORD TYPE SportsLiveSubscription (
+        "___createTime" TIMESTAMP,
+        "___createdBy"  REFERENCE,
+        "___etag"       STRING,
+        "___modTime"    TIMESTAMP,
+        "___modifiedBy" REFERENCE,
+        "___recordID"   REFERENCE QUERYABLE,
+        id              STRING QUERYABLE,
+        eventId         STRING QUERYABLE,
+        userId          STRING,
+        sport           STRING,
+        pushToken       STRING,
+        deviceName      STRING,
+        createdAt       TIMESTAMP SORTABLE,
+        GRANT CREATE TO "_icloud",
+        GRANT READ TO "_world",
+        GRANT WRITE TO "_icloud"
+    );

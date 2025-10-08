@@ -14,5 +14,8 @@ struct MiddlesexLiveActivityBundle: WidgetBundle {
         MiddlesexLiveActivity()
         MiddlesexLiveActivityControl()
         MiddlesexLiveActivityLiveActivity()
+        if #available(iOS 16.2, *) {
+            MiddlesexSportsLiveActivity()
+        }
     }
 }
