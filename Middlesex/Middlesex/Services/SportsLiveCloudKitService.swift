@@ -47,13 +47,12 @@ final class SportsLiveCloudKitService {
         eventId: String,
         reporterId: String,
         reporterName: String,
-        duration: TimeInterval
+        expiresAt: Date
     ) async throws -> SportsReporterClaim {
         if let existing = try await fetchActiveClaim(for: eventId) {
             throw ServiceError.reporterAlreadyClaimed(by: existing.reporterName)
         }
 
-        let expiresAt = Date().addingTimeInterval(duration)
         let claim = SportsReporterClaim(
             id: eventId, // enforce one active claim per event
             eventId: eventId,

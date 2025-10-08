@@ -122,10 +122,16 @@ class LiveActivityManager: ObservableObject {
     private func startUpdateTimer(endDate: Date) {
         updateTimer?.invalidate()
 
-        updateTimer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
+        // Update every second so the activity state remains fresh while relying on TimelineView for UI ticks
+        updateTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
             Task {
                 await self?.updateActivity(endDate: endDate)
             }
+        }
+
+        // Ensure we push an immediate refresh as soon as the timer starts
+        Task {
+            await updateActivity(endDate: endDate)
         }
     }
 

@@ -19,6 +19,7 @@ class SportsLiveActivityManager: ObservableObject {
     @Published private(set) var activeClaims: [String: SportsReporterClaim] = [:]
 
     private var pushTokenTasks: [String: Task<Void, Never>] = [:]
+    private var clockRefreshTimers: [String: Timer] = [:]
     private let cloudService = SportsLiveCloudKitService.shared
 
     private init() {
@@ -56,6 +57,8 @@ class SportsLiveActivityManager: ObservableObject {
             initialState.homeScore = event.middlesexScore >= 0 ? event.middlesexScore : nil
             initialState.awayScore = event.opponentScore >= 0 ? event.opponentScore : nil
             initialState.periodLabel = "Starts \(event.eventDate.formatted(date: .omitted, time: .shortened))"
+            initialState.clockRemaining = max(event.eventDate.timeIntervalSince(Date()), 0)
+            initialState.clockLastUpdated = Date()
         }
 
         if initialState.reporterName == nil {
@@ -84,14 +87,17 @@ class SportsLiveActivityManager: ObservableObject {
 
         activeActivities[event.id] = activity
         listenForPushTokens(activity, eventId: event.id, sport: sportType, userPreferences: userPreferences)
+        startClockRefreshTimer(for: event.id)
     }
 
-    func stopFollowing(eventId: String, userPreferences: UserPreferences, dismissAfter: TimeInterval = 60) async {
+    func stopFollowing(eventId: String, userPreferences: UserPreferences = .shared, dismissAfter: TimeInterval = 60) async {
         guard let activity = activeActivities[eventId] else { return }
         activeActivities.removeValue(forKey: eventId)
 
         pushTokenTasks[eventId]?.cancel()
         pushTokenTasks[eventId] = nil
+        clockRefreshTimers[eventId]?.invalidate()
+        clockRefreshTimers.removeValue(forKey: eventId)
 
         await activity.end(.init(state: activity.content.state, staleDate: nil), dismissalPolicy: .after(Date().addingTimeInterval(dismissAfter)))
 
@@ -139,10 +145,18 @@ class SportsLiveActivityManager: ObservableObject {
     func claimReporter(
         for event: SportsEvent,
         reporterId: String,
-        reporterName: String,
-        window: TimeInterval = 3 * 60 * 60
+        reporterName: String
     ) async throws -> SportsReporterClaim {
-        let claim = try await cloudService.claimReporter(eventId: event.id, reporterId: reporterId, reporterName: reporterName, duration: window)
+        let now = Date()
+        let desiredExpiry = event.eventDate.addingTimeInterval(24 * 60 * 60)
+        let expiresAt = desiredExpiry > now ? desiredExpiry : now.addingTimeInterval(24 * 60 * 60)
+
+        let claim = try await cloudService.claimReporter(
+            eventId: event.id,
+            reporterId: reporterId,
+            reporterName: reporterName,
+            expiresAt: expiresAt
+        )
         activeClaims[event.id] = claim
 
         if let activity = activeActivities[event.id] {
@@ -158,6 +172,8 @@ class SportsLiveActivityManager: ObservableObject {
         do {
             try await cloudService.releaseReporter(eventId: eventId)
             activeClaims.removeValue(forKey: eventId)
+            clockRefreshTimers[eventId]?.invalidate()
+            clockRefreshTimers.removeValue(forKey: eventId)
 
             if let activity = activeActivities[eventId] {
                 var state = activity.content.state
@@ -175,6 +191,7 @@ class SportsLiveActivityManager: ObservableObject {
         for activity in Activity<SportsActivityAttributes>.activities {
             activeActivities[activity.attributes.eventId] = activity
             listenForPushTokens(activity, eventId: activity.attributes.eventId, sport: activity.attributes.sportType, userPreferences: UserPreferences.shared)
+            startClockRefreshTimer(for: activity.attributes.eventId)
         }
     }
 
@@ -214,6 +231,35 @@ class SportsLiveActivityManager: ObservableObject {
                 }
             }
         }
+    }
+
+    private func startClockRefreshTimer(for eventId: String) {
+        clockRefreshTimers[eventId]?.invalidate()
+
+        guard activeActivities[eventId] != nil else { return }
+
+        let timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+            Task { [weak self] in
+                await self?.refreshClock(for: eventId)
+            }
+        }
+
+        clockRefreshTimers[eventId] = timer
+    }
+
+    private func refreshClock(for eventId: String) async {
+        guard let activity = activeActivities[eventId] else { return }
+
+        var state = activity.content.state
+
+        guard state.status == .live, let remaining = state.currentClockRemaining() else { return }
+
+        let now = Date()
+        state.clockRemaining = remaining
+        state.clockLastUpdated = now
+        state.updatedAt = now
+
+        await activity.update(.init(state: state, staleDate: activity.content.staleDate))
     }
 }
 

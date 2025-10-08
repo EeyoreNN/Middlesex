@@ -125,9 +125,10 @@ class CloudKitManager: ObservableObject {
         errorMessage = nil
 
         let now = Date()
+        let windowStart = now.addingTimeInterval(-24 * 60 * 60)
         let predicate = NSPredicate(
             format: "eventDate >= %@ AND status != %@",
-            now as NSDate, SportsEvent.EventStatus.cancelled.rawValue
+            windowStart as NSDate, SportsEvent.EventStatus.cancelled.rawValue
         )
 
         let query = CKQuery(recordType: "SportsEvent", predicate: predicate)
