@@ -85,9 +85,10 @@ struct UpcomingEventsView: View {
                 ScrollView {
                     LazyVStack(spacing: 16) {
                         ForEach(cloudKitManager.sportsEvents) { event in
-                            SportsEventCard(event: event) {
-                                selectedEvent = event
-                            }
+                            SportsEventCard(
+                                event: event,
+                                onSelect: { selectedEvent = event }
+                            )
                         }
 
                         Spacer(minLength: 80)
@@ -190,6 +191,7 @@ struct SportsEventCard: View {
     @State private var isFollowLoading = false
     @State private var isClaimLoading = false
     @State private var alertMessage: String?
+    @State private var showingReporterConsole = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -203,6 +205,9 @@ struct SportsEventCard: View {
         .contentShape(Rectangle())
         .onTapGesture {
             onSelect?()
+        }
+        .sheet(isPresented: $showingReporterConsole) {
+            ReporterConsoleView(event: event)
         }
         .alert(alertMessage ?? "", isPresented: Binding(
             get: { alertMessage != nil },
@@ -304,7 +309,10 @@ struct SportsEventCard: View {
                     isFollowLoading: $isFollowLoading,
                     isClaimLoading: $isClaimLoading,
                     alertMessage: $alertMessage,
-                    userPreferences: userPreferences
+                    userPreferences: userPreferences,
+                    onStartReporting: {
+                        showingReporterConsole = true
+                    }
                 )
             }
         }
@@ -354,6 +362,7 @@ struct SportsEventDetailView: View {
     @State private var isFollowLoading = false
     @State private var isClaimLoading = false
     @State private var alertMessage: String?
+    @State private var showingReporterConsole = false
 
     var body: some View {
         NavigationView {
@@ -381,6 +390,9 @@ struct SportsEventDetailView: View {
             set: { _ in alertMessage = nil }
         )) {
             Button("OK", role: .cancel) { }
+        }
+        .sheet(isPresented: $showingReporterConsole) {
+            ReporterConsoleView(event: event)
         }
     }
 
@@ -465,7 +477,8 @@ struct SportsEventDetailView: View {
                     isFollowLoading: $isFollowLoading,
                     isClaimLoading: $isClaimLoading,
                     alertMessage: $alertMessage,
-                    userPreferences: userPreferences
+                    userPreferences: userPreferences,
+                    onStartReporting: { showingReporterConsole = true }
                 )
             } else {
                 Text("Live Activities require iOS 16.2 or later.")
@@ -483,30 +496,18 @@ struct SportsLiveControlsView: View {
     @Binding var isClaimLoading: Bool
     @Binding var alertMessage: String?
     let userPreferences: UserPreferences
+    var onStartReporting: (() -> Void)? = nil
 
     @StateObject private var liveActivityManager = SportsLiveActivityManager.shared
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 12) {
-                Button {
-                    toggleFollow()
-                } label: {
-                    Label(isFollowing ? "Stop Live Updates" : "Follow Live Updates",
-                          systemImage: isFollowing ? "dot.radiowaves.left.and.right" : "dot.radiowaves.right")
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(.accentColor)
-                .controlSize(.small)
-                .disabled(isFollowLoading || !supportsLiveActivity)
-                .overlay {
-                    if isFollowLoading {
-                        ProgressView()
-                            .progressViewStyle(.circular)
-                    }
-                }
+                followButton
 
-                if canClaimButtonVisible {
+                if reporterClaimIsMine {
+                    startReportingButton
+                } else if shouldShowClaimButton {
                     claimButton
                 }
             }
@@ -520,9 +521,74 @@ struct SportsLiveControlsView: View {
             if let claim = liveActivityManager.activeClaims[event.id] {
                 claimStatusView(claim)
             }
+
+            if reporterClaimIsMine {
+                surrenderButton
+            }
         }
         .task {
             await liveActivityManager.fetchActiveClaim(eventId: event.id)
+        }
+    }
+
+    private var followButton: some View {
+        Button {
+            toggleFollow()
+        } label: {
+            Label(isFollowing ? "Stop Live Updates" : "Follow Live Updates",
+                  systemImage: isFollowing ? "dot.radiowaves.left.and.right" : "dot.radiowaves.right")
+        }
+        .buttonStyle(.borderedProminent)
+        .tint(.accentColor)
+        .controlSize(.small)
+        .disabled(isFollowLoading || !supportsLiveActivity)
+        .overlay(alignment: .center) {
+            if isFollowLoading {
+                ProgressView().progressViewStyle(.circular)
+            }
+        }
+    }
+
+    private var startReportingButton: some View {
+        Button {
+            triggerStartReporting()
+        } label: {
+            Label("Start Reporting", systemImage: "pencil.and.outline")
+        }
+        .buttonStyle(.borderedProminent)
+        .controlSize(.small)
+        .disabled(isClaimLoading)
+    }
+
+    private var claimButton: some View {
+        Button {
+            handleClaimAction()
+        } label: {
+            Label("Claim Reporter Spot", systemImage: "person.badge.plus")
+        }
+        .buttonStyle(.bordered)
+        .controlSize(.small)
+        .disabled(isClaimLoading || claimDisabledForCurrentUser)
+        .overlay(alignment: .center) {
+            if isClaimLoading {
+                ProgressView().progressViewStyle(.circular)
+            }
+        }
+    }
+
+    private var surrenderButton: some View {
+        Button(role: .destructive) {
+            surrenderReportingSpot()
+        } label: {
+            Label("Surrender Reporting Spot", systemImage: "person.crop.circle.badge.minus")
+        }
+        .buttonStyle(.bordered)
+        .controlSize(.small)
+        .disabled(isClaimLoading)
+        .overlay(alignment: .center) {
+            if isClaimLoading {
+                ProgressView().progressViewStyle(.circular)
+            }
         }
     }
 
@@ -534,15 +600,15 @@ struct SportsLiveControlsView: View {
         SportsActivityAttributes.SportType(eventSport: event.sport) != nil
     }
 
-    private var canClaimButtonVisible: Bool {
-        guard supportsLiveActivity else { return false }
-        guard event.status != .cancelled else { return false }
-        return isWithinClaimWindow || reporterClaimIsMine
-    }
-
     private var reporterClaimIsMine: Bool {
         guard let claim = liveActivityManager.activeClaims[event.id] else { return false }
         return claim.reporterId == userPreferences.userIdentifier && claim.status == .active
+    }
+
+    private var shouldShowClaimButton: Bool {
+        guard supportsLiveActivity else { return false }
+        guard event.status != .cancelled else { return false }
+        return isWithinClaimWindow && !reporterClaimIsMine
     }
 
     private var isWithinClaimWindow: Bool {
@@ -550,6 +616,11 @@ struct SportsLiveControlsView: View {
         let windowEnd = event.eventDate.addingTimeInterval(3600)
         let now = Date()
         return now >= windowStart && now <= windowEnd
+    }
+
+    private var claimDisabledForCurrentUser: Bool {
+        guard let claim = liveActivityManager.activeClaims[event.id] else { return false }
+        return claim.reporterId != userPreferences.userIdentifier
     }
 
     private func toggleFollow() {
@@ -579,34 +650,6 @@ struct SportsLiveControlsView: View {
         }
     }
 
-    @ViewBuilder
-    private var claimButton: some View {
-        Button {
-            handleClaimAction()
-        } label: {
-            Label(
-                reporterClaimIsMine ? "Release Reporter Spot" : "Claim Reporter Spot",
-                systemImage: reporterClaimIsMine ? "person.crop.circle.badge.minus" : "person.badge.plus"
-            )
-        }
-        .buttonStyle(.bordered)
-        .controlSize(.small)
-        .disabled(isClaimLoading || claimDisabledForCurrentUser)
-        .overlay {
-            if isClaimLoading {
-                ProgressView().progressViewStyle(.circular)
-            }
-        }
-    }
-
-    private var claimDisabledForCurrentUser: Bool {
-        guard let claim = liveActivityManager.activeClaims[event.id] else { return false }
-        if claim.reporterId == userPreferences.userIdentifier {
-            return false
-        }
-        return true
-    }
-
     private func handleClaimAction() {
         guard userPreferences.isSignedIn else {
             alertMessage = "Sign in to claim the reporter role."
@@ -618,27 +661,20 @@ struct SportsLiveControlsView: View {
             return
         }
 
+        guard isWithinClaimWindow else {
+            alertMessage = "Reporter signups open one hour before the game and close one hour after it starts."
+            return
+        }
+
         isClaimLoading = true
 
         Task {
             do {
-                if reporterClaimIsMine {
-                    await liveActivityManager.releaseReporter(eventId: event.id)
-                } else {
-                    guard isWithinClaimWindow else {
-                        await MainActor.run {
-                            alertMessage = "Reporter signups open one hour before the game and close one hour after it starts."
-                            isClaimLoading = false
-                        }
-                        return
-                    }
-
-                    _ = try await liveActivityManager.claimReporter(
-                        for: event,
-                        reporterId: userPreferences.userIdentifier,
-                        reporterName: userPreferences.userName.isEmpty ? "Reporter" : userPreferences.userName
-                    )
-                }
+                _ = try await liveActivityManager.claimReporter(
+                    for: event,
+                    reporterId: userPreferences.userIdentifier,
+                    reporterName: userPreferences.userName.isEmpty ? "Reporter" : userPreferences.userName
+                )
             } catch SportsLiveCloudKitService.ServiceError.reporterAlreadyClaimed(let name) {
                 await MainActor.run {
                     alertMessage = "\(name) is currently reporting this game."
@@ -650,9 +686,18 @@ struct SportsLiveControlsView: View {
             }
 
             await MainActor.run {
-                if isClaimLoading {
-                    isClaimLoading = false
-                }
+                isClaimLoading = false
+            }
+        }
+    }
+
+    private func surrenderReportingSpot() {
+        isClaimLoading = true
+
+        Task {
+            await liveActivityManager.releaseReporter(eventId: event.id)
+            await MainActor.run {
+                isClaimLoading = false
             }
         }
     }
@@ -673,6 +718,253 @@ struct SportsLiveControlsView: View {
             Text("Claim expires \(claim.expiresAt.formatted(date: .omitted, time: .shortened))")
                 .font(.caption2)
                 .foregroundColor(.secondary)
+        }
+    }
+
+    private func triggerStartReporting() {
+        if let onStartReporting {
+            onStartReporting()
+        } else {
+            alertMessage = "Reporter console coming soon."
+        }
+    }
+}
+
+@available(iOS 16.2, *)
+struct ReporterConsoleView: View {
+    let event: SportsEvent
+
+    @ObservedObject private var liveActivityManager = SportsLiveActivityManager.shared
+    @ObservedObject private var userPreferences = UserPreferences.shared
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var status: SportsActivityAttributes.GameStatus = .live
+    @State private var homeScore: Int = 0
+    @State private var awayScore: Int = 0
+    @State private var periodLabel: String = ""
+    @State private var clockMinutes: Int = 0
+    @State private var clockSeconds: Int = 0
+    @State private var possession: SportsActivityAttributes.TeamSide? = nil
+    @State private var summary: String = ""
+    @State private var highlightIcon: String? = nil
+    @State private var isSaving = false
+    @State private var errorMessage: String?
+
+    private var sportType: SportsActivityAttributes.SportType? {
+        SportsActivityAttributes.SportType(eventSport: event.sport)
+    }
+
+    private var reporterName: String {
+        let name = userPreferences.userName
+        return name.isEmpty ? "Reporter" : name
+    }
+
+    var body: some View {
+        NavigationView {
+            Form {
+                Section("Game Status") {
+                    Picker("Status", selection: $status) {
+                        ForEach(SportsActivityAttributes.GameStatus.allCases, id: \.self) { value in
+                            Text(value.displayName).tag(value)
+                        }
+                    }
+                    TextField("Period / Quarter", text: $periodLabel)
+                }
+
+                if sportType != .some(.crossCountry) {
+                    Section("Scoreboard") {
+                        Stepper("Middlesex: \(homeScore)", value: $homeScore, in: 0...200)
+                        Stepper("\(event.opponent): \(awayScore)", value: $awayScore, in: 0...200)
+                    }
+
+                    Section("Possession") {
+                        Picker("Possession", selection: Binding(
+                            get: { possession ?? .middlesex },
+                            set: { possession = $0 }
+                        )) {
+                            Text("Middlesex").tag(SportsActivityAttributes.TeamSide.middlesex)
+                            Text(event.opponent).tag(SportsActivityAttributes.TeamSide.opponent)
+                        }
+                        .pickerStyle(.segmented)
+                    }
+                }
+
+                Section("Clock") {
+                    if status == .live {
+                        Stepper("Minutes: \(clockMinutes)", value: $clockMinutes, in: 0...120)
+                        Stepper("Seconds: \(clockSeconds)", value: $clockSeconds, in: 0...59)
+                    } else {
+                        Text("Clock updates only apply while status is Live.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+
+                Section("Highlight / Summary") {
+                    TextEditor(text: $summary)
+                        .frame(minHeight: 100)
+                }
+
+                if let errorMessage {
+                    Section {
+                        Text(errorMessage)
+                            .foregroundColor(.red)
+                            .font(.caption)
+                    }
+                }
+
+                Section {
+                    Button {
+                        publishUpdate()
+                    } label: {
+                        Label("Publish Update", systemImage: "paperplane.fill")
+                    }
+                    .disabled(isSaving)
+
+                    Button(role: .destructive) {
+                        releaseClaim()
+                    } label: {
+                        Label("Surrender Reporting Spot", systemImage: "person.crop.circle.badge.minus")
+                    }
+                    .disabled(isSaving)
+                }
+            }
+            .navigationTitle("Reporter Console")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Close") { dismiss() }
+                }
+            }
+        }
+        .task {
+            await loadInitialState()
+        }
+    }
+
+    @MainActor
+    private func loadInitialState() async {
+        if let activity = liveActivityManager.activeActivities[event.id] {
+            apply(state: activity.content.state)
+        } else if let latest = try? await SportsLiveCloudKitService.shared.fetchLatestUpdate(for: event.id) {
+            apply(state: latest.state)
+        } else {
+            applyDefaults()
+        }
+    }
+
+    @MainActor
+    private func apply(state: SportsActivityAttributes.ContentState) {
+        status = state.status
+        homeScore = max(0, state.homeScore ?? event.middlesexScore)
+        awayScore = max(0, state.awayScore ?? event.opponentScore)
+        periodLabel = state.periodLabel ?? ""
+        summary = state.lastEventSummary ?? ""
+        possession = state.possession
+        highlightIcon = state.highlightIcon ?? sportType?.iconName
+        clockMinutes = 0
+        clockSeconds = 0
+
+        let remaining = state.currentClockRemaining() ?? state.clockRemaining ?? 0
+        if remaining > 0 {
+            let total = Int(remaining.rounded(.down))
+            clockMinutes = total / 60
+            clockSeconds = total % 60
+        }
+    }
+
+    @MainActor
+    private func applyDefaults() {
+        status = defaultStatus(for: event.status)
+        homeScore = max(0, event.middlesexScore)
+        awayScore = max(0, event.opponentScore)
+        possession = .middlesex
+        highlightIcon = sportType?.iconName
+        clockMinutes = 0
+        clockSeconds = 0
+
+        let remaining = max(event.eventDate.timeIntervalSince(Date()), 0)
+        if remaining > 0 {
+            let total = Int(remaining.rounded(.down))
+            clockMinutes = total / 60
+            clockSeconds = total % 60
+        }
+    }
+
+    @MainActor
+    private func publishUpdate() {
+        guard let sportType else {
+            errorMessage = "This sport does not yet support Live Activities."
+            return
+        }
+
+        isSaving = true
+        errorMessage = nil
+
+        Task {
+            let now = Date()
+            let clockTotal = max(0, clockMinutes * 60 + clockSeconds)
+
+            let state = SportsActivityAttributes.ContentState(
+                status: status,
+                homeScore: sportType == .some(.crossCountry) ? nil : homeScore,
+                awayScore: sportType == .some(.crossCountry) ? nil : awayScore,
+                periodLabel: periodLabel.isEmpty ? nil : periodLabel,
+                clockRemaining: status == .live ? Double(clockTotal) : nil,
+                clockLastUpdated: status == .live ? now : nil,
+                possession: sportType == .some(.crossCountry) ? nil : possession,
+                lastEventSummary: summary.isEmpty ? nil : summary,
+                lastEventDetail: nil,
+                highlightIcon: highlightIcon ?? sportType.iconName,
+                topFinishers: [],
+                teamResults: [],
+                updatedAt: now,
+                reporterName: reporterName
+            )
+
+            let reporterId = userPreferences.userIdentifier.isEmpty ? nil : userPreferences.userIdentifier
+
+            let update = SportsLiveUpdate(
+                eventId: event.id,
+                sport: sportType,
+                state: state,
+                summary: summary.isEmpty ? nil : summary,
+                reporterId: reporterId,
+                reporterName: reporterName
+            )
+
+            do {
+                try await liveActivityManager.publish(update: update)
+                await MainActor.run {
+                    isSaving = false
+                    dismiss()
+                }
+            } catch {
+                await MainActor.run {
+                    errorMessage = error.localizedDescription
+                    isSaving = false
+                }
+            }
+        }
+    }
+
+    @MainActor
+    private func releaseClaim() {
+        isSaving = true
+        Task {
+            await liveActivityManager.releaseReporter(eventId: event.id)
+            await MainActor.run {
+                isSaving = false
+                dismiss()
+            }
+        }
+    }
+
+    private func defaultStatus(for status: SportsEvent.EventStatus) -> SportsActivityAttributes.GameStatus {
+        switch status {
+        case .scheduled: return .upcoming
+        case .inProgress: return .live
+        case .completed: return .final
+        case .cancelled: return .final
         }
     }
 }

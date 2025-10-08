@@ -63,7 +63,23 @@ final class SportsLiveCloudKitService {
             status: .active
         )
 
-        let record = claim.toRecord()
+        let recordID = CKRecord.ID(recordName: eventId)
+        let record: CKRecord
+
+        if let existing = try? await database.record(for: recordID) {
+            record = existing
+        } else {
+            record = CKRecord(recordType: "SportsReporterClaim", recordID: recordID)
+        }
+
+        record["id"] = claim.id as CKRecordValue
+        record["eventId"] = claim.eventId as CKRecordValue
+        record["reporterId"] = claim.reporterId as CKRecordValue
+        record["reporterName"] = claim.reporterName as CKRecordValue
+        record["claimedAt"] = claim.claimedAt as CKRecordValue
+        record["expiresAt"] = claim.expiresAt as CKRecordValue
+        record["status"] = claim.status.rawValue as CKRecordValue
+
         _ = try await database.save(record)
         return claim
     }
