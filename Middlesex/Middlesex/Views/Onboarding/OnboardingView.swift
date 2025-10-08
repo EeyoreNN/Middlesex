@@ -12,6 +12,10 @@ struct OnboardingView: View {
     @State private var currentPage = 0
     @State private var name = ""
     @State private var grade = ""
+    @State private var showingCameraImport = false
+    @State private var showingManualBuilder = false
+    @State private var redWeekSchedule: [String: [BlockTime]] = [:]
+    @State private var whiteWeekSchedule: [String: [BlockTime]] = [:]
 
     var body: some View {
         ZStack {
@@ -21,7 +25,7 @@ struct OnboardingView: View {
             VStack {
                 // Progress indicator
                 HStack(spacing: 8) {
-                    ForEach(0..<4) { index in
+                    ForEach(0..<5) { index in
                         Circle()
                             .fill(currentPage == index ? Color.white : Color.white.opacity(0.3))
                             .frame(width: 8, height: 8)
@@ -39,10 +43,29 @@ struct OnboardingView: View {
                     ScheduleSetupIntroScreen()
                         .tag(2)
 
+                    ScheduleImportMethodScreen(
+                        onCameraImport: {
+                            showingCameraImport = true
+                        },
+                        onManualImport: {
+                            showingManualBuilder = true
+                        }
+                    )
+                    .tag(3)
+
                     SimplifiedScheduleBuilder(onComplete: completeOnboarding)
-                        .tag(3)
+                        .tag(4)
                 }
                 .tabViewStyle(.page(indexDisplayMode: .never))
+            }
+            .sheet(isPresented: $showingCameraImport) {
+                CameraScheduleImportView(
+                    redWeekSchedule: $redWeekSchedule,
+                    whiteWeekSchedule: $whiteWeekSchedule
+                )
+            }
+            .sheet(isPresented: $showingManualBuilder) {
+                SimplifiedScheduleBuilder(onComplete: completeOnboarding)
             }
         }
     }
@@ -206,6 +229,105 @@ struct ScheduleSetupIntroScreen: View {
             Spacer()
 
             Text("Swipe to set up your schedule")
+                .font(.caption)
+                .foregroundColor(.white.opacity(0.7))
+                .padding(.bottom, 40)
+        }
+    }
+}
+
+struct ScheduleImportMethodScreen: View {
+    let onCameraImport: () -> Void
+    let onManualImport: () -> Void
+
+    var body: some View {
+        VStack(spacing: 30) {
+            Spacer()
+
+            Image(systemName: "arrow.up.doc")
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: 80, height: 80)
+                .foregroundColor(.white)
+
+            Text("Import Your Schedule")
+                .font(.title.bold())
+                .foregroundColor(.white)
+
+            Text("Choose how you'd like to set up your schedule")
+                .font(.body)
+                .foregroundColor(.white.opacity(0.9))
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 40)
+
+            VStack(spacing: 16) {
+                // Camera Import Button
+                Button(action: onCameraImport) {
+                    HStack(spacing: 16) {
+                        Image(systemName: "camera.fill")
+                            .font(.title2)
+                            .foregroundColor(MiddlesexTheme.primaryRed)
+                            .frame(width: 50, height: 50)
+                            .background(Color.white)
+                            .clipShape(Circle())
+
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("AI Camera Import")
+                                .font(.headline)
+                                .foregroundColor(.white)
+
+                            Text("Take photos of your schedules")
+                                .font(.caption)
+                                .foregroundColor(.white.opacity(0.8))
+                        }
+
+                        Spacer()
+
+                        Image(systemName: "sparkles")
+                            .foregroundColor(.yellow)
+                    }
+                    .padding()
+                    .background(Color.white.opacity(0.2))
+                    .cornerRadius(16)
+                }
+                .buttonStyle(.plain)
+
+                // Manual Import Button
+                Button(action: onManualImport) {
+                    HStack(spacing: 16) {
+                        Image(systemName: "hand.tap.fill")
+                            .font(.title2)
+                            .foregroundColor(MiddlesexTheme.primaryRed)
+                            .frame(width: 50, height: 50)
+                            .background(Color.white)
+                            .clipShape(Circle())
+
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Manual Entry")
+                                .font(.headline)
+                                .foregroundColor(.white)
+
+                            Text("Select your classes manually")
+                                .font(.caption)
+                                .foregroundColor(.white.opacity(0.8))
+                        }
+
+                        Spacer()
+
+                        Image(systemName: "chevron.right")
+                            .foregroundColor(.white.opacity(0.6))
+                    }
+                    .padding()
+                    .background(Color.white.opacity(0.2))
+                    .cornerRadius(16)
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, 30)
+
+            Spacer()
+
+            Text("You can always change your schedule later")
                 .font(.caption)
                 .foregroundColor(.white.opacity(0.7))
                 .padding(.bottom, 40)

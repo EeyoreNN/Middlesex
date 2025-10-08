@@ -14,6 +14,8 @@ struct ClassActivityAttributes: ActivityAttributes {
         var timeRemaining: TimeInterval
         var progress: Double // 0.0 to 1.0
         var currentTime: Date
+        var startDate: Date
+        var endDate: Date
     }
 
     // Fixed properties for the class

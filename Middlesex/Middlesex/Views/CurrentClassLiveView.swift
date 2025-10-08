@@ -53,7 +53,7 @@ struct CurrentClassLiveView: View {
             if let period = blockToPeriod[blockLetter] {
                 let weekNumber = Calendar.current.component(.weekOfYear, from: currentTime)
                 let weekType: ClassSchedule.WeekType = weekNumber % 2 == 0 ? .red : .white
-                userClass = preferences.getClass(for: period, weekType: weekType)
+                userClass = preferences.getClassWithFallback(for: period, preferredWeekType: weekType)
             } else {
                 userClass = nil
             }

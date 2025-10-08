@@ -22,6 +22,7 @@ struct AnnouncementsView: View {
 
                     TextField("Search announcements", text: $searchText)
                         .textFieldStyle(.plain)
+                        .foregroundColor(MiddlesexTheme.textPrimary)
 
                     if !searchText.isEmpty {
                         Button {
@@ -33,7 +34,7 @@ struct AnnouncementsView: View {
                     }
                 }
                 .padding()
-                .background(MiddlesexTheme.secondaryGray)
+                .background(Color(UIColor.secondarySystemFill))
                 .cornerRadius(10)
                 .padding()
 
@@ -97,6 +98,7 @@ struct AnnouncementsView: View {
             }
             .background(MiddlesexTheme.background)
             .navigationTitle("Announcements")
+            .navigationBarTitleDisplayMode(.inline)
             .refreshable {
                 await cloudKitManager.fetchActiveAnnouncements()
             }
@@ -147,12 +149,12 @@ struct CategoryFilterChip: View {
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 8)
-            .background(isSelected ? MiddlesexTheme.primaryRed : Color.white)
-            .foregroundColor(isSelected ? .white : MiddlesexTheme.textDark)
+            .background(isSelected ? MiddlesexTheme.primaryRed : MiddlesexTheme.cardBackground)
+            .foregroundColor(isSelected ? .white : MiddlesexTheme.textPrimary)
             .cornerRadius(20)
             .overlay(
                 RoundedRectangle(cornerRadius: 20)
-                    .stroke(isSelected ? Color.clear : Color.gray.opacity(0.3), lineWidth: 1)
+                    .stroke(isSelected ? Color.clear : MiddlesexTheme.textSecondary.opacity(0.3), lineWidth: 1)
             )
         }
     }

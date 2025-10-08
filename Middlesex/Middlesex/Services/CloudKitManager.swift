@@ -190,6 +190,35 @@ class CloudKitManager: ObservableObject {
         isLoading = false
     }
 
+    // MARK: - Special Schedules
+
+    func fetchSpecialSchedule(for date: Date) async -> SpecialSchedule? {
+        let calendar = Calendar.current
+        let startOfDay = calendar.startOfDay(for: date)
+        let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay)!
+
+        let predicate = NSPredicate(
+            format: "date >= %@ AND date < %@ AND isActive == 1",
+            startOfDay as NSDate, endOfDay as NSDate
+        )
+
+        let query = CKQuery(recordType: "SpecialSchedule", predicate: predicate)
+
+        do {
+            let results = try await publicDatabase.records(matching: query)
+            if let firstResult = results.matchResults.first,
+               let record = try? firstResult.1.get(),
+               let schedule = SpecialSchedule(record: record) {
+                print("📅 Found special schedule for \(date): \(schedule.title)")
+                return schedule
+            }
+        } catch {
+            print("❌ Failed to fetch special schedule: \(error)")
+        }
+
+        return nil
+    }
+
     // MARK: - Helper Methods
 
     func refreshAllData() async {

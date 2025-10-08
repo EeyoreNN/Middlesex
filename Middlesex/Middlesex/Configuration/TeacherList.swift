@@ -27,26 +27,34 @@ struct Teacher: Identifiable, Hashable, Codable {
 struct TeacherList {
     static let availableTeachers: [Teacher] = [
         // English Department
+        Teacher(name: "Ms. Smedley", department: .english, defaultRoom: "BAP Seminar Room"),
         Teacher(name: "Mr. Smith", department: .english, defaultRoom: "101"),
         Teacher(name: "Ms. Johnson", department: .english, defaultRoom: "102"),
         Teacher(name: "Dr. Williams", department: .english, defaultRoom: "103"),
 
         // Mathematics Department
+        Teacher(name: "Mr. Sullivan", department: .math, defaultRoom: "201"),
+        Teacher(name: "Mr. Luo", department: .math, defaultRoom: "C03"),
         Teacher(name: "Mr. Brown", department: .math, defaultRoom: "201"),
         Teacher(name: "Ms. Davis", department: .math, defaultRoom: "202"),
         Teacher(name: "Dr. Miller", department: .math, defaultRoom: "203"),
 
         // Science Department
+        Teacher(name: "Mr. Whitt", department: .science, defaultRoom: "C22"),
         Teacher(name: "Mr. Wilson", department: .science, defaultRoom: "301"),
         Teacher(name: "Ms. Moore", department: .science, defaultRoom: "302"),
         Teacher(name: "Dr. Taylor", department: .science, defaultRoom: "303"),
 
         // History Department
+        Teacher(name: "Mr. Hitzrot", department: .history, defaultRoom: "Elliot 33"),
+        Teacher(name: "Ms. Hoar", department: .history, defaultRoom: "Elliot 34"),
         Teacher(name: "Mr. Anderson", department: .history, defaultRoom: "401"),
         Teacher(name: "Ms. Thomas", department: .history, defaultRoom: "402"),
         Teacher(name: "Dr. Jackson", department: .history, defaultRoom: "403"),
 
         // World Languages Department
+        Teacher(name: "Mr. Denious", department: .language, defaultRoom: "C07"),
+        Teacher(name: "Señora Aldana", department: .language, defaultRoom: "C06"),
         Teacher(name: "Mme. Martin", department: .language, defaultRoom: "501"),
         Teacher(name: "Sr. Garcia", department: .language, defaultRoom: "502"),
         Teacher(name: "Mr Jean", department: .language, defaultRoom: "503"),
@@ -56,6 +64,7 @@ struct TeacherList {
         Teacher(name: "Ms. Rodriguez", department: .arts, defaultRoom: "Theater"),
 
         // Music Department
+        Teacher(name: "Mr. Lobato", department: .music, defaultRoom: "RCC Rehearsal Room"),
         Teacher(name: "Mr. Lewis", department: .music, defaultRoom: "Music Hall"),
         Teacher(name: "Ms. Walker", department: .music, defaultRoom: "Choir Room"),
 
@@ -89,12 +98,20 @@ struct RoomList {
         "401", "402", "403", "404", "405",
         "501", "502", "503", "504", "505",
 
+        // C Building (Clay)
+        "C03", "C06", "C07", "C22",
+
+        // Elliot Building
+        "Elliot 33", "Elliot 34",
+
         // Special Rooms
         "Art Studio",
         "Theater",
         "Music Hall",
         "Choir Room",
         "Band Room",
+        "RCC Rehearsal Room",
+        "BAP Seminar Room",
         "Gym",
         "Wellness Center",
         "Library",

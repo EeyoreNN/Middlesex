@@ -29,9 +29,17 @@ class LiveActivityManager: ObservableObject {
             currentActivity = activity
             print("📱 Restored existing Live Activity: \(activity.id)")
 
-            // Calculate end date from current state
-            let timeRemaining = activity.content.state.timeRemaining
-            let endDate = Date().addingTimeInterval(timeRemaining)
+            let state = activity.content.state
+            let endDate = state.endDate
+
+            // Skip if activity already expired
+            guard endDate > Date() else {
+                await MainActor.run {
+                    currentActivity = nil
+                }
+                continue
+            }
+
             startUpdateTimer(endDate: endDate)
             break // Only restore the first one
         }
@@ -78,10 +86,18 @@ class LiveActivityManager: ObservableObject {
             classColor: classColor
         )
 
+        let now = Date()
+        let clampedStart = min(startDate, endDate)
+        let totalDuration = max(endDate.timeIntervalSince(clampedStart), 1)
+        let elapsed = now.timeIntervalSince(clampedStart)
+        let normalizedProgress = min(max(elapsed / totalDuration, 0), 1)
+
         let initialState = ClassActivityAttributes.ContentState(
-            timeRemaining: endDate.timeIntervalSince(Date()),
-            progress: 0.0,
-            currentTime: Date()
+            timeRemaining: max(endDate.timeIntervalSince(now), 0),
+            progress: normalizedProgress,
+            currentTime: now,
+            startDate: clampedStart,
+            endDate: endDate
         )
 
         do {
@@ -118,8 +134,10 @@ class LiveActivityManager: ObservableObject {
         guard let activity = currentActivity else { return }
 
         let now = Date()
-        let totalDuration = endDate.timeIntervalSince(activity.content.state.currentTime)
-        let elapsed = now.timeIntervalSince(activity.content.state.currentTime)
+        let state = activity.content.state
+        let startDate = state.startDate
+        let totalDuration = max(endDate.timeIntervalSince(startDate), 1)
+        let elapsed = now.timeIntervalSince(startDate)
         let progress = min(max(elapsed / totalDuration, 0), 1)
         let timeRemaining = max(endDate.timeIntervalSince(now), 0)
 
@@ -132,7 +150,9 @@ class LiveActivityManager: ObservableObject {
         let updatedState = ClassActivityAttributes.ContentState(
             timeRemaining: timeRemaining,
             progress: progress,
-            currentTime: now
+            currentTime: now,
+            startDate: startDate,
+            endDate: endDate
         )
 
         await activity.update(
@@ -186,7 +206,7 @@ class LiveActivityManager: ObservableObject {
         let weekType: ClassSchedule.WeekType = weekNumber % 2 == 0 ? .red : .white
         let preferences = UserPreferences.shared
 
-        guard let userClass = preferences.getClass(for: period, weekType: weekType) else {
+        guard let userClass = preferences.getClassWithFallback(for: period, preferredWeekType: weekType) else {
             // No class scheduled, stop any existing activity
             if currentActivity != nil {
                 stopCurrentActivity()

@@ -14,6 +14,7 @@ struct HomeView: View {
     @State private var lastTapTime: Date?
     @State private var showingAdminCodeEntry = false
     @State private var showingAnnouncementComposer = false
+    @State private var showingAdminDashboard = false
 
     var body: some View {
         NavigationView {
@@ -52,11 +53,11 @@ struct HomeView: View {
                             .padding(.horizontal)
 
                             Button {
-                                showingAnnouncementComposer = true
+                                showingAdminDashboard = true
                             } label: {
                                 HStack {
-                                    Image(systemName: "megaphone.fill")
-                                    Text("Create Announcement")
+                                    Image(systemName: "gear.circle.fill")
+                                    Text("Admin Dashboard")
                                     Spacer()
                                     Image(systemName: "chevron.right")
                                 }
@@ -72,10 +73,20 @@ struct HomeView: View {
                         .background(Color.yellow.opacity(0.1))
                         .cornerRadius(12)
                         .padding(.horizontal)
-                    }
 
-                    // TEMPORARY: Dev tools
-                    VStack(spacing: 8) {
+                        // Dev tools (admin only)
+                        VStack(spacing: 12) {
+                            HStack {
+                                Image(systemName: "wrench.fill")
+                                    .foregroundColor(.gray)
+                                Text("Developer Tools")
+                                    .font(.headline)
+                                    .foregroundColor(MiddlesexTheme.textPrimary)
+                                Spacer()
+                            }
+                            .padding(.horizontal)
+                            .padding(.top, 8)
+
                         Button {
                             showingAdminCodeEntry = true
                         } label: {
@@ -135,8 +146,29 @@ struct HomeView: View {
                             .background(Color.blue)
                             .cornerRadius(10)
                         }
+
+                            Button {
+                                print("🔧 Admin status: \(preferences.isAdmin)")
+                                print("🔧 Toggling admin status...")
+                                preferences.isAdmin.toggle()
+                            } label: {
+                                HStack {
+                                    Image(systemName: preferences.isAdmin ? "checkmark.circle.fill" : "circle")
+                                    Text("Admin Mode: \(preferences.isAdmin ? "ON" : "OFF")")
+                                }
+                                .font(.caption)
+                                .foregroundColor(.white)
+                                .padding()
+                                .background(preferences.isAdmin ? Color.green : Color.gray)
+                                .cornerRadius(10)
+                            }
+                        }
+                        .padding(.horizontal)
+                        .padding(.vertical, 12)
+                        .background(Color.gray.opacity(0.1))
+                        .cornerRadius(12)
+                        .padding(.horizontal)
                     }
-                    .padding(.horizontal)
 
                     // Quick stats
                     HStack(spacing: 12) {
@@ -212,6 +244,9 @@ struct HomeView: View {
             .sheet(isPresented: $showingAnnouncementComposer) {
                 AnnouncementComposerView()
             }
+            .sheet(isPresented: $showingAdminDashboard) {
+                AdminDashboardView()
+            }
         }
     }
 
@@ -249,11 +284,9 @@ struct HomeView: View {
         let currentHour = calendar.component(.hour, from: now)
 
         // Simple logic to find next period
-        for periodTime in PeriodTime.defaultSchedule {
-            if currentHour < 15 { // Before 3 PM
-                if let userClass = preferences.getClass(for: periodTime.period, weekType: weekType) {
-                    return (userClass, periodTime.period, periodTime)
-                }
+        for periodTime in PeriodTime.defaultSchedule where currentHour < 15 {
+            if let userClass = preferences.getClassWithFallback(for: periodTime.period, preferredWeekType: weekType) {
+                return (userClass, periodTime.period, periodTime)
             }
         }
         return nil

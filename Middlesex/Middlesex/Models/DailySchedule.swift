@@ -237,7 +237,14 @@ struct DailySchedule {
         ]
     ]
 
-    static func getSchedule(for date: Date, weekType: WeekType? = nil) -> [BlockTime] {
+    static func getSchedule(for date: Date, weekType: WeekType? = nil, specialSchedule: SpecialSchedule? = nil) -> [BlockTime] {
+        // If a special schedule is provided, use it
+        if let special = specialSchedule {
+            print("📅 Using special schedule: \(special.title)")
+            return special.blocks
+        }
+
+        // Otherwise, use regular Red/White week schedule
         let calendar = Calendar.current
         let weekday = calendar.component(.weekday, from: date)
 

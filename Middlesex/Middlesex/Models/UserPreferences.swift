@@ -63,6 +63,15 @@ class UserPreferences: ObservableObject {
             return whiteWeekSchedule[period]
         }
     }
+    
+    func getClassWithFallback(for period: Int, preferredWeekType: ClassSchedule.WeekType) -> UserClass? {
+        if let userClass = getClass(for: period, weekType: preferredWeekType) {
+            return userClass
+        }
+        
+        let fallbackWeek: ClassSchedule.WeekType = preferredWeekType == .red ? .white : .red
+        return getClass(for: period, weekType: fallbackWeek)
+    }
 
     func setClass(_ userClass: UserClass, for period: Int, weekType: ClassSchedule.WeekType) {
         switch weekType {

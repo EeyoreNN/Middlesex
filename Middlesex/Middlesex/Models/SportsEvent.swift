@@ -172,6 +172,27 @@ struct SportsEvent: Identifiable, Hashable {
             return "T \(middlesexScore)-\(opponentScore)"
         }
     }
+
+    // Convert to CloudKit record
+    func toRecord() -> CKRecord {
+        let record = CKRecord(recordType: "SportsEvent")
+        record["id"] = id as CKRecordValue
+        record["sport"] = sport.rawValue as CKRecordValue
+        record["eventType"] = eventType.rawValue as CKRecordValue
+        record["opponent"] = opponent as CKRecordValue
+        record["eventDate"] = eventDate as CKRecordValue
+        record["location"] = location as CKRecordValue
+        record["isHome"] = (isHome ? 1 : 0) as CKRecordValue
+        record["middlesexScore"] = middlesexScore as CKRecordValue
+        record["opponentScore"] = opponentScore as CKRecordValue
+        record["status"] = status.rawValue as CKRecordValue
+        record["season"] = season.rawValue as CKRecordValue
+        record["year"] = year as CKRecordValue
+        record["notes"] = notes as CKRecordValue
+        record["createdAt"] = createdAt as CKRecordValue
+        record["updatedAt"] = updatedAt as CKRecordValue
+        return record
+    }
 }
 
 struct SportsTeam: Identifiable, Hashable {

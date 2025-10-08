@@ -101,6 +101,7 @@ struct BlockSelectionView: View {
 
     @State private var searchText = ""
     @State private var selectedDepartment: ClassDepartment?
+    @State private var showingCustomClassRequest = false
 
     var availableClasses: [SchoolClass] {
         let alreadySelectedIDs = Set(alreadySelected.map { $0.id })
@@ -180,11 +181,48 @@ struct BlockSelectionView: View {
                             onSelect(schoolClass)
                         }
                     }
+
+                    // Request custom class button
+                    Button {
+                        showingCustomClassRequest = true
+                    } label: {
+                        HStack(spacing: 16) {
+                            Image(systemName: "plus.circle.fill")
+                                .font(.title2)
+                                .foregroundColor(MiddlesexTheme.primaryRed)
+                                .frame(width: 50, height: 50)
+                                .background(Color.white)
+                                .clipShape(Circle())
+
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Class Not Listed?")
+                                    .font(.headline)
+                                    .foregroundColor(.primary)
+
+                                Text("Request to add a custom class")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+
+                            Spacer()
+
+                            Image(systemName: "chevron.right")
+                                .foregroundColor(.gray)
+                        }
+                        .padding()
+                        .background(Color.white)
+                        .cornerRadius(12)
+                        .shadow(color: Color.black.opacity(0.05), radius: 5, x: 0, y: 2)
+                    }
+                    .buttonStyle(.plain)
                 }
                 .padding()
             }
             .background(MiddlesexTheme.cardBackground)
             .cornerRadius(30, corners: [.topLeft, .topRight])
+        }
+        .sheet(isPresented: $showingCustomClassRequest) {
+            CustomClassRequestView()
         }
     }
 }

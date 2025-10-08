@@ -97,4 +97,21 @@ struct MenuItem: Identifiable, Hashable {
         self.createdAt = createdAt
         self.updatedAt = updatedAt
     }
+
+    // Convert to CloudKit record
+    func toRecord() -> CKRecord {
+        let record = CKRecord(recordType: "MenuItem")
+        record["id"] = id as CKRecordValue
+        record["date"] = date as CKRecordValue
+        record["mealType"] = mealType.rawValue as CKRecordValue
+        record["title"] = title as CKRecordValue
+        record["description"] = description as CKRecordValue
+        record["category"] = category.rawValue as CKRecordValue
+        record["allergens"] = allergens.joined(separator: ", ") as CKRecordValue
+        record["isVegetarian"] = (isVegetarian ? 1 : 0) as CKRecordValue
+        record["isVegan"] = (isVegan ? 1 : 0) as CKRecordValue
+        record["createdAt"] = createdAt as CKRecordValue
+        record["updatedAt"] = updatedAt as CKRecordValue
+        return record
+    }
 }

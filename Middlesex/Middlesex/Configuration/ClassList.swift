@@ -59,6 +59,7 @@ struct ClassList {
 
         // Mathematics
         SchoolClass(name: "Algebra and Its Functions", department: .math),
+        SchoolClass(name: "Intermediate Algebra", department: .math),
         SchoolClass(name: "Geometry", department: .math),
         SchoolClass(name: "Pre-Calculus", department: .math),
         SchoolClass(name: "Calculus", department: .math),
@@ -81,6 +82,7 @@ struct ClassList {
         SchoolClass(name: "Spanish I", department: .language),
         SchoolClass(name: "Spanish II", department: .language),
         SchoolClass(name: "Spanish III", department: .language),
+        SchoolClass(name: "Spanish 12: Spanish Grammar", department: .language),
         SchoolClass(name: "Latin I", department: .language),
         SchoolClass(name: "Latin II", department: .language),
         SchoolClass(name: "Mandarin Chinese", department: .language),
@@ -89,9 +91,11 @@ struct ClassList {
         SchoolClass(name: "Studio Art", department: .arts),
         SchoolClass(name: "Photography", department: .arts),
         SchoolClass(name: "Drama", department: .arts),
+        SchoolClass(name: "Art 12", department: .arts),
 
         // Music
         SchoolClass(name: "Music: Foundations", department: .music),
+        SchoolClass(name: "Jazz Ensemble", department: .music),
         SchoolClass(name: "Chorus", department: .music),
         SchoolClass(name: "Orchestra", department: .music),
 

@@ -1,5 +1,12 @@
 DEFINE SCHEMA
 
+    // IMPORTANT: This schema must be uploaded to CloudKit Dashboard
+    // 1. Go to: https://icloud.developer.apple.com/dashboard
+    // 2. Select your app container: iCloud.com.nicholasnoon.Middlesex
+    // 3. Go to Schema → Development → Import Schema
+    // 4. Upload this file
+    // 5. After testing, deploy to Production
+
     RECORD TYPE MenuItem (
         "___createTime" TIMESTAMP,
         "___createdBy"  REFERENCE,
@@ -134,6 +141,62 @@ DEFINE SCHEMA
         isUsed          INT64 QUERYABLE,
         usedBy          STRING,
         usedAt          TIMESTAMP,
+        GRANT CREATE TO "_icloud",
+        GRANT READ TO "_icloud",
+        GRANT WRITE TO "_icloud"
+    );
+
+    RECORD TYPE SpecialSchedule (
+        "___createTime" TIMESTAMP,
+        "___createdBy"  REFERENCE,
+        "___etag"       STRING,
+        "___modTime"    TIMESTAMP,
+        "___modifiedBy" REFERENCE,
+        "___recordID"   REFERENCE QUERYABLE,
+        id              STRING,
+        date            TIMESTAMP QUERYABLE SORTABLE,
+        title           STRING,
+        blocksData      STRING,
+        createdBy       STRING,
+        createdAt       TIMESTAMP,
+        isActive        INT64 QUERYABLE,
+        GRANT CREATE TO "_icloud",
+        GRANT READ TO "_icloud",
+        GRANT WRITE TO "_icloud"
+    );
+
+    RECORD TYPE AppSettings (
+        "___createTime" TIMESTAMP,
+        "___createdBy"  REFERENCE,
+        "___etag"       STRING,
+        "___modTime"    TIMESTAMP,
+        "___modifiedBy" REFERENCE,
+        "___recordID"   REFERENCE QUERYABLE,
+        id              STRING QUERYABLE,
+        settingKey      STRING QUERYABLE,
+        settingValue    STRING,
+        updatedBy       STRING,
+        updatedAt       TIMESTAMP SORTABLE,
+        GRANT CREATE TO "_icloud",
+        GRANT READ TO "_icloud",
+        GRANT WRITE TO "_icloud"
+    );
+
+    RECORD TYPE CustomClass (
+        "___createTime" TIMESTAMP,
+        "___createdBy"  REFERENCE,
+        "___etag"       STRING,
+        "___modTime"    TIMESTAMP,
+        "___modifiedBy" REFERENCE,
+        "___recordID"   REFERENCE QUERYABLE,
+        id              STRING QUERYABLE,
+        className       STRING QUERYABLE,
+        teacherName     STRING,
+        roomNumber      STRING,
+        department      STRING QUERYABLE,
+        submittedBy     STRING,
+        submittedAt     TIMESTAMP QUERYABLE SORTABLE,
+        isApproved      INT64 QUERYABLE,
         GRANT CREATE TO "_icloud",
         GRANT READ TO "_icloud",
         GRANT WRITE TO "_icloud"

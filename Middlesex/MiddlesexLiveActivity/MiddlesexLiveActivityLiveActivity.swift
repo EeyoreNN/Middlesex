@@ -146,79 +146,85 @@ struct MiddlesexLiveActivityLiveActivity: Widget {
 struct LockScreenLiveActivityView: View {
     let context: ActivityViewContext<ClassActivityAttributes>
 
-    var timeRemainingText: String {
-        let minutes = Int(context.state.timeRemaining / 60)
-        let seconds = Int(context.state.timeRemaining.truncatingRemainder(dividingBy: 60))
+    var body: some View {
+        TimelineView(.periodic(from: .now, interval: 1)) { timeline in
+            let metrics = context.state.metrics(at: timeline.date)
+            let timeText = LockScreenLiveActivityView.formattedTimeRemaining(metrics.timeRemaining)
+            let progress = metrics.progress
+
+            VStack(spacing: 0) {
+                HStack(spacing: 12) {
+                    // Color indicator
+                    Circle()
+                        .fill(Color(hex: context.attributes.classColor) ?? .red)
+                        .frame(width: 10, height: 10)
+
+                    // Class name
+                    Text(context.attributes.className)
+                        .font(.headline.bold())
+                        .foregroundColor(.white)
+
+                    Spacer()
+
+                    // Time remaining
+                    Text(timeText)
+                        .font(.subheadline.monospacedDigit())
+                        .foregroundColor(.white.opacity(0.9))
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 14)
+                .padding(.bottom, 10)
+
+                // Teacher and room
+                HStack(spacing: 16) {
+                    Label(context.attributes.teacher, systemImage: "person.fill")
+                        .font(.caption)
+                        .foregroundColor(.white.opacity(0.8))
+
+                    Label(context.attributes.room, systemImage: "mappin.circle.fill")
+                        .font(.caption)
+                        .foregroundColor(.white.opacity(0.8))
+
+                    Spacer()
+
+                    // Block and times
+                    Text("\(context.attributes.block) • \(context.attributes.startTime)-\(context.attributes.endTime)")
+                        .font(.caption)
+                        .foregroundColor(.white.opacity(0.7))
+                }
+                .padding(.horizontal, 16)
+                .padding(.bottom, 10)
+
+                // Progress bar
+                GeometryReader { geometry in
+                    ZStack(alignment: .leading) {
+                        // Background
+                        Rectangle()
+                            .fill(Color.white.opacity(0.2))
+
+                        // Progress
+                        Rectangle()
+                            .fill(Color.white)
+                            .frame(width: geometry.size.width * progress)
+                    }
+                }
+                .frame(height: 4)
+            }
+        }
+        .background(Color(hex: context.attributes.classColor)?.opacity(0.95) ?? Color.red.opacity(0.95))
+        .activityBackgroundTint(Color(hex: context.attributes.classColor)?.opacity(0.95) ?? Color.red.opacity(0.95))
+        .activitySystemActionForegroundColor(.white)
+    }
+
+    private static func formattedTimeRemaining(_ timeRemaining: TimeInterval) -> String {
+        let minutes = Int(timeRemaining / 60)
+        let seconds = Int(timeRemaining.truncatingRemainder(dividingBy: 60))
 
         if minutes > 0 {
             return "\(minutes)m \(seconds)s"
         } else {
             return "\(seconds)s"
         }
-    }
-
-    var body: some View {
-        VStack(spacing: 0) {
-            HStack(spacing: 12) {
-                // Color indicator
-                Circle()
-                    .fill(Color(hex: context.attributes.classColor) ?? .red)
-                    .frame(width: 10, height: 10)
-
-                // Class name
-                Text(context.attributes.className)
-                    .font(.headline.bold())
-                    .foregroundColor(.white)
-
-                Spacer()
-
-                // Time remaining
-                Text(timeRemainingText)
-                    .font(.subheadline.monospacedDigit())
-                    .foregroundColor(.white.opacity(0.9))
-            }
-            .padding(.horizontal, 16)
-            .padding(.top, 14)
-            .padding(.bottom, 10)
-
-            // Teacher and room
-            HStack(spacing: 16) {
-                Label(context.attributes.teacher, systemImage: "person.fill")
-                    .font(.caption)
-                    .foregroundColor(.white.opacity(0.8))
-
-                Label(context.attributes.room, systemImage: "mappin.circle.fill")
-                    .font(.caption)
-                    .foregroundColor(.white.opacity(0.8))
-
-                Spacer()
-
-                // Block and times
-                Text("\(context.attributes.block) • \(context.attributes.startTime)-\(context.attributes.endTime)")
-                    .font(.caption)
-                    .foregroundColor(.white.opacity(0.7))
-            }
-            .padding(.horizontal, 16)
-            .padding(.bottom, 10)
-
-            // Progress bar
-            GeometryReader { geometry in
-                ZStack(alignment: .leading) {
-                    // Background
-                    Rectangle()
-                        .fill(Color.white.opacity(0.2))
-
-                    // Progress
-                    Rectangle()
-                        .fill(Color.white)
-                        .frame(width: geometry.size.width * context.state.progress)
-                }
-            }
-            .frame(height: 4)
-        }
-        .background(Color(hex: context.attributes.classColor)?.opacity(0.95) ?? Color.red.opacity(0.95))
-        .activityBackgroundTint(Color(hex: context.attributes.classColor)?.opacity(0.95) ?? Color.red.opacity(0.95))
-        .activitySystemActionForegroundColor(.white)
     }
 }
 
@@ -240,6 +246,17 @@ extension Color {
     }
 }
 
+private extension ClassActivityAttributes.ContentState {
+    func metrics(at date: Date) -> (timeRemaining: TimeInterval, progress: Double) {
+        let clampedDate = min(max(date, startDate), endDate)
+        let totalDuration = max(endDate.timeIntervalSince(startDate), 1)
+        let elapsed = clampedDate.timeIntervalSince(startDate)
+        let progress = min(max(elapsed / totalDuration, 0), 1)
+        let timeRemaining = max(endDate.timeIntervalSince(clampedDate), 0)
+        return (timeRemaining, progress)
+    }
+}
+
 #Preview("Notification", as: .content, using: ClassActivityAttributes(
     className: "AP Calculus BC",
     teacher: "Mr. Smith",
@@ -251,6 +268,6 @@ extension Color {
 )) {
    MiddlesexLiveActivityLiveActivity()
 } contentStates: {
-    ClassActivityAttributes.ContentState(timeRemaining: 1200, progress: 0.5, currentTime: Date())
-    ClassActivityAttributes.ContentState(timeRemaining: 300, progress: 0.85, currentTime: Date())
+    ClassActivityAttributes.ContentState(timeRemaining: 1200, progress: 0.5, currentTime: Date(), startDate: Date().addingTimeInterval(-600), endDate: Date().addingTimeInterval(600))
+    ClassActivityAttributes.ContentState(timeRemaining: 300, progress: 0.85, currentTime: Date(), startDate: Date().addingTimeInterval(-1800), endDate: Date().addingTimeInterval(300))
 }

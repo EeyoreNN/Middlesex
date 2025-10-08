@@ -28,6 +28,7 @@ enum TabItem: String, CaseIterable {
 struct CustomTabBar: View {
     @Binding var selectedTab: TabItem
     @Namespace private var animation
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         HStack(spacing: 0) {
@@ -41,21 +42,17 @@ struct CustomTabBar: View {
                     } label: {
                         ZStack {
                             Circle()
-                                .fill(
-                                    LinearGradient(
-                                        colors: [MiddlesexTheme.primaryRed, MiddlesexTheme.primaryRed.opacity(0.8)],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    )
-                                )
-                                .frame(width: 60, height: 60)
-                                .shadow(color: MiddlesexTheme.primaryRed.opacity(0.4), radius: 8, x: 0, y: 4)
+                                .fill(colorScheme == .dark ? Color.black : Color.white)
+                                .frame(width: 69.75, height: 69.75)
+                                .shadow(color: MiddlesexTheme.primaryRed.opacity(0.25), radius: 8, x: 0, y: 4)
 
-                            Image(systemName: tab.icon)
-                                .font(.system(size: 28))
-                                .foregroundColor(.white)
+                            Image("MiddlesexShield")
+                                .resizable()
+                                .renderingMode(.original)
+                                .aspectRatio(contentMode: .fit)
+                                .frame(width: 49.91875, height: 49.91875)
                         }
-                        .offset(y: -15)
+                        .offset(y: -4)
                     }
                     .frame(maxWidth: .infinity)
                 } else {
@@ -66,26 +63,29 @@ struct CustomTabBar: View {
                         }
                     } label: {
                         VStack(spacing: 4) {
-                            Image(systemName: tab.icon)
-                                .font(.system(size: 22))
-                                .frame(height: 24)
+                            ZStack {
+                                if selectedTab == tab {
+                                    Circle()
+                                        .fill(MiddlesexTheme.primaryRed.opacity(0.14))
+                                        .frame(width: 44, height: 44)
+                                        .matchedGeometryEffect(id: "TAB_INDICATOR", in: animation)
+                                }
+
+                                Image(systemName: tab.icon)
+                                    .font(.system(size: 22, weight: .semibold))
+                                    .foregroundColor(selectedTab == tab ? MiddlesexTheme.primaryRed : .gray)
+                            }
+                            .frame(height: 44)
 
                             Text(tab.rawValue)
                                 .font(.caption2)
                                 .fontWeight(selectedTab == tab ? .semibold : .regular)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.8)
+                                .foregroundColor(selectedTab == tab ? MiddlesexTheme.primaryRed : .gray)
                         }
-                        .foregroundColor(selectedTab == tab ? MiddlesexTheme.primaryRed : .gray)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 8)
-                        .background(
-                            Group {
-                                if selectedTab == tab {
-                                    Capsule()
-                                        .fill(MiddlesexTheme.primaryRed.opacity(0.1))
-                                        .matchedGeometryEffect(id: "TAB", in: animation)
-                                }
-                            }
-                        )
                     }
                 }
             }

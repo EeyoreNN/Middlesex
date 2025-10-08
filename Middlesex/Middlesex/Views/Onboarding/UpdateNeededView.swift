@@ -135,7 +135,7 @@ struct UpdateNeededView: View {
         let blocks = ["A", "B", "C", "D", "E", "F", "G"]
 
         for (index, block) in blocks.enumerated() {
-            if let userClass = preferences.getClass(for: index + 1, weekType: .red) {
+            if let userClass = preferences.getClassWithFallback(for: index + 1, preferredWeekType: .red) {
                 // Find matching SchoolClass from the list
                 if let schoolClass = ClassList.availableClasses.first(where: { $0.name == userClass.className }) {
                     classes[block] = schoolClass
