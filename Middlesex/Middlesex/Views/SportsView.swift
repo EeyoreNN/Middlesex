@@ -341,7 +341,7 @@ struct SportsLiveControlsView: View {
     @Binding var alertMessage: String?
     let userPreferences: UserPreferences
 
-    @ObservedObject private var liveActivityManager = SportsLiveActivityManager.shared
+    @StateObject private var liveActivityManager = SportsLiveActivityManager.shared
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {

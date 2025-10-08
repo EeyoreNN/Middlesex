@@ -9,7 +9,7 @@ import Foundation
 import CloudKit
 
 @available(iOS 16.2, *)
-struct SportsLiveUpdate: Identifiable, Hashable {
+struct SportsLiveUpdate: Identifiable, Hashable, Sendable {
     let id: String
     let eventId: String
     let sport: SportsActivityAttributes.SportType
@@ -158,7 +158,7 @@ struct SportsLiveUpdate: Identifiable, Hashable {
     }
 }
 
-struct SportsReporterClaim: Identifiable, Hashable {
+struct SportsReporterClaim: Identifiable, Hashable, Sendable {
     enum Status: String {
         case pending
         case active
@@ -226,7 +226,7 @@ struct SportsReporterClaim: Identifiable, Hashable {
 }
 
 @available(iOS 16.2, *)
-struct SportsLiveSubscription: Identifiable, Hashable {
+struct SportsLiveSubscription: Identifiable, Hashable, Sendable {
     let id: String
     let eventId: String
     let userId: String

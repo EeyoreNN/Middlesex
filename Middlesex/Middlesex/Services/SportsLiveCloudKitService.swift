@@ -9,7 +9,8 @@ import Foundation
 import CloudKit
 
 @available(iOS 16.2, *)
-actor SportsLiveCloudKitService {
+@MainActor
+final class SportsLiveCloudKitService {
     enum ServiceError: Error {
         case reporterAlreadyClaimed(by: String)
         case recordNotFound

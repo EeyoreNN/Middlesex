@@ -33,7 +33,7 @@ class SportsLiveActivityManager: ObservableObject {
         activeActivities[eventId] != nil
     }
 
-    func follow(event: SportsEvent, userPreferences: UserPreferences = .shared) async throws {
+    func follow(event: SportsEvent, userPreferences: UserPreferences) async throws {
         guard let sportType = SportsActivityAttributes.SportType(eventSport: event.sport) else {
             print("⚠️ Unsupported sport for Live Activity: \(event.sport.rawValue)")
             return
@@ -86,7 +86,7 @@ class SportsLiveActivityManager: ObservableObject {
         listenForPushTokens(activity, eventId: event.id, sport: sportType, userPreferences: userPreferences)
     }
 
-    func stopFollowing(eventId: String, userPreferences: UserPreferences = .shared, dismissAfter: TimeInterval = 60) async {
+    func stopFollowing(eventId: String, userPreferences: UserPreferences, dismissAfter: TimeInterval = 60) async {
         guard let activity = activeActivities[eventId] else { return }
         activeActivities.removeValue(forKey: eventId)
 
@@ -174,7 +174,7 @@ class SportsLiveActivityManager: ObservableObject {
     private func restoreExistingActivities() async {
         for activity in Activity<SportsActivityAttributes>.activities {
             activeActivities[activity.attributes.eventId] = activity
-            listenForPushTokens(activity, eventId: activity.attributes.eventId, sport: activity.attributes.sportType, userPreferences: .shared)
+            listenForPushTokens(activity, eventId: activity.attributes.eventId, sport: activity.attributes.sportType, userPreferences: UserPreferences.shared)
         }
     }
 
