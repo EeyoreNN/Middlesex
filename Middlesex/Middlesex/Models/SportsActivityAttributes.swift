@@ -7,6 +7,7 @@
 
 import Foundation
 import ActivityKit
+import SwiftUI
 
 @available(iOS 16.2, *)
 struct SportsActivityAttributes: ActivityAttributes {
@@ -68,12 +69,28 @@ struct SportsActivityAttributes: ActivityAttributes {
             switch self {
             case .soccer: return "Soccer"
             case .football: return "Football"
-            case .crossCountry: return "Cross Country"
-            }
+        case .crossCountry: return "Cross Country"
         }
     }
 
-    enum GameStatus: String, Codable, Hashable {
+    var themeColor: Color {
+        switch self {
+        case .soccer: return Color(red: 0.12, green: 0.62, blue: 0.36)
+        case .football: return Color(red: 0.65, green: 0.22, blue: 0.17)
+        case .crossCountry: return Color(red: 0.18, green: 0.34, blue: 0.72)
+        }
+    }
+
+    var iconName: String {
+        switch self {
+        case .soccer: return "soccerball"
+        case .football: return "sportscourt"
+        case .crossCountry: return "figure.run"
+        }
+    }
+}
+
+    enum GameStatus: String, Codable, Hashable, CaseIterable {
         case upcoming
         case live
         case final

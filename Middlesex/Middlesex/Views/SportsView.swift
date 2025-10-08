@@ -6,6 +6,9 @@
 //
 
 import SwiftUI
+#if canImport(ActivityKit)
+import ActivityKit
+#endif
 
 struct SportsView: View {
     @StateObject private var cloudKitManager = CloudKitManager.shared
@@ -749,6 +752,48 @@ struct ReporterConsoleView: View {
     @State private var highlightIcon: String? = nil
     @State private var isSaving = false
     @State private var errorMessage: String?
+    @State private var autoPublishTask: Task<Void, Never>? = nil
+    @State private var didLoadInitialState = false
+    @State private var isGameClockRunning = false
+    @State private var gameClockTimer: Timer? = nil
+    @State private var gameClockStartDate: Date? = nil
+    @State private var gameClockRemainingSeconds: Int = 0
+    @State private var raceAccumulatedElapsed: TimeInterval = 0
+    @State private var selectedScoringTeam: SportsActivityAttributes.TeamSide = .middlesex
+    @State private var scorerInput: String = ""
+    @State private var knownScorers: Set<String> = []
+    private struct LoggedEvent: Identifiable, Equatable {
+        let id: UUID
+        var text: String
+        var timestamp: Date
+
+        init(id: UUID = UUID(), text: String, timestamp: Date = Date()) {
+            self.id = id
+            self.text = text
+            self.timestamp = timestamp
+        }
+    }
+
+    @State private var eventLog: [LoggedEvent] = []
+    @State private var finishers: [FinisherEntry] = []
+    @State private var raceStartDate: Date? = nil
+    @State private var raceTimer: Timer? = nil
+
+    private struct FinisherEntry: Identifiable, Equatable {
+        let id: UUID
+        var place: Int
+        var elapsed: TimeInterval
+        var name: String
+        var school: String
+
+        init(id: UUID = UUID(), place: Int, elapsed: TimeInterval, name: String = "", school: String = "") {
+            self.id = id
+            self.place = place
+            self.elapsed = elapsed
+            self.name = name
+            self.school = school
+        }
+    }
 
     private var sportType: SportsActivityAttributes.SportType? {
         SportsActivityAttributes.SportType(eventSport: event.sport)
@@ -790,19 +835,87 @@ struct ReporterConsoleView: View {
                 }
 
                 Section("Clock") {
-                    if status == .live {
-                        Stepper("Minutes: \(clockMinutes)", value: $clockMinutes, in: 0...120)
-                        Stepper("Seconds: \(clockSeconds)", value: $clockSeconds, in: 0...59)
+                    if sportType == .some(.crossCountry) {
+                        crossCountryClockControls
                     } else {
-                        Text("Clock updates only apply while status is Live.")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
+                        if status == .live {
+                            Stepper("Minutes: \(clockMinutes)", value: $clockMinutes, in: 0...120)
+                                .disabled(isGameClockRunning)
+                            Stepper("Seconds: \(clockSeconds)", value: $clockSeconds, in: 0...59)
+                                .disabled(isGameClockRunning)
+                        } else {
+                            Text("Clock updates only apply while status is Live.")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+
+                        HStack(spacing: 12) {
+                            if isGameClockRunning {
+                                Button("Pause Clock") {
+                                    pauseGameClock()
+                                }
+                                .buttonStyle(.bordered)
+                                .controlSize(.small)
+                            } else {
+                                Button("Start Clock") {
+                                    startGameClock()
+                                }
+                                .buttonStyle(.borderedProminent)
+                                .controlSize(.small)
+                                .disabled(clockMinutes == 0 && clockSeconds == 0)
+                            }
+
+                            Button("Reset Clock", role: .destructive) {
+                                resetGameClock()
+                            }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+                        }
+                        .padding(.top, 4)
                     }
+                }
+
+                if let sportType {
+                    sportSpecificSections(for: sportType)
                 }
 
                 Section("Highlight / Summary") {
                     TextEditor(text: $summary)
                         .frame(minHeight: 100)
+                }
+
+                if !eventLog.isEmpty {
+                    Section("Recent Events") {
+                        ForEach($eventLog) { $entry in
+                            VStack(alignment: .leading, spacing: 6) {
+                                TextField("Event description", text: $entry.text)
+                                    .textInputAutocapitalization(.sentences)
+                                    .onSubmit { scheduleAutoPublish() }
+                                    .onChange(of: entry.text) { _ in scheduleAutoPublish() }
+
+                                HStack {
+                                    Text(entry.timestamp, style: .time)
+                                        .font(.caption2)
+                                        .foregroundColor(.secondary)
+
+                                    Spacer()
+
+                                    Button(role: .destructive) {
+                                        removeEvent(entry.id)
+                                    } label: {
+                                        Image(systemName: "trash")
+                                    }
+                                    .buttonStyle(.borderless)
+                                }
+                            }
+                            .padding(.vertical, 2)
+                        }
+                        Button("Clear Event Log", role: .destructive) {
+                            eventLog.removeAll()
+                            summary = ""
+                            scheduleAutoPublish()
+                        }
+                    }
                 }
 
                 if let errorMessage {
@@ -814,13 +927,6 @@ struct ReporterConsoleView: View {
                 }
 
                 Section {
-                    Button {
-                        publishUpdate()
-                    } label: {
-                        Label("Publish Update", systemImage: "paperplane.fill")
-                    }
-                    .disabled(isSaving)
-
                     Button(role: .destructive) {
                         releaseClaim()
                     } label: {
@@ -839,6 +945,188 @@ struct ReporterConsoleView: View {
         .task {
             await loadInitialState()
         }
+        .onDisappear {
+            autoPublishTask?.cancel()
+            gameClockTimer?.invalidate()
+            gameClockTimer = nil
+            raceTimer?.invalidate()
+        }
+        .onChange(of: status) { scheduleAutoPublish() }
+        .onChange(of: homeScore) { scheduleAutoPublish() }
+        .onChange(of: awayScore) { scheduleAutoPublish() }
+        .onChange(of: periodLabel) { scheduleAutoPublish() }
+        .onChange(of: possession) { scheduleAutoPublish() }
+        .onChange(of: clockMinutes) {
+            if sportType != .some(.crossCountry) {
+                if !isGameClockRunning {
+                    gameClockRemainingSeconds = max(0, clockMinutes * 60 + clockSeconds)
+                }
+                scheduleAutoPublish()
+            }
+        }
+        .onChange(of: clockSeconds) {
+            if sportType != .some(.crossCountry) {
+                if !isGameClockRunning {
+                    gameClockRemainingSeconds = max(0, clockMinutes * 60 + clockSeconds)
+                }
+                scheduleAutoPublish()
+            }
+        }
+        .onChange(of: summary) { scheduleAutoPublish() }
+        .onChange(of: finishers) {
+            if sportType == .some(.crossCountry) {
+                summary = finishersSummaryText
+                scheduleAutoPublish()
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func sportSpecificSections(for sport: SportsActivityAttributes.SportType) -> some View {
+        switch sport {
+        case .football:
+            footballQuickActionsSection
+        case .soccer:
+            soccerQuickActionsSection
+        case .crossCountry:
+            crossCountrySections
+        }
+    }
+
+    @ViewBuilder
+    private var footballQuickActionsSection: some View {
+        Section("Football Scoring") {
+            Picker("Team", selection: $selectedScoringTeam) {
+                Text("Middlesex").tag(SportsActivityAttributes.TeamSide.middlesex)
+                Text(event.opponent).tag(SportsActivityAttributes.TeamSide.opponent)
+            }
+            .pickerStyle(.segmented)
+
+            scorerInputField
+
+            HStack(spacing: 12) {
+                Button("Touchdown") { handleFootballEvent(.touchdown) }
+                Button("Field Goal") { handleFootballEvent(.fieldGoal) }
+                Button("Safety") { handleFootballEvent(.safety) }
+                Button("Extra Point") { handleFootballEvent(.extraPoint) }
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.small)
+        }
+    }
+
+    @ViewBuilder
+    private var soccerQuickActionsSection: some View {
+        Section("Soccer Goal") {
+            scorerInputField
+
+            HStack(spacing: 12) {
+                Button("Goal - Middlesex") { recordSoccerGoal(for: .middlesex) }
+                Button("Goal - \(event.opponent)") { recordSoccerGoal(for: .opponent) }
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.small)
+        }
+    }
+
+    @ViewBuilder
+    private var crossCountrySections: some View {
+        Section("Finishers") {
+            if finishers.isEmpty {
+                Text("Tap \"Log Finisher\" as athletes cross the line. You can fill in names later.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+
+            ForEach($finishers) { $finisher in
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        Text("#\(finisher.place)")
+                            .font(.headline)
+                        Spacer()
+                        Text(formattedElapsed(finisher.elapsed))
+                            .font(.subheadline.monospacedDigit())
+                    }
+
+                    TextField("Athlete name", text: $finisher.name)
+                        .textInputAutocapitalization(.words)
+
+                    TextField("School", text: $finisher.school)
+                        .textInputAutocapitalization(.words)
+
+                    HStack {
+                        Button("Update Time to Now") {
+                            if let start = raceStartDate {
+                                finisher.elapsed = Date().timeIntervalSince(start)
+                                scheduleAutoPublish()
+                            }
+                        }
+                        .disabled(raceStartDate == nil)
+
+                        Spacer()
+
+                        Button(role: .destructive) {
+                            removeFinisher(withId: finisher.id)
+                        } label: {
+                            Image(systemName: "trash")
+                        }
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                }
+                .padding(.vertical, 4)
+            }
+
+            Button("Log Finisher") {
+                logCrossCountryFinisher()
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.small)
+        }
+    }
+
+    @ViewBuilder
+    private var crossCountryClockControls: some View {
+        let elapsedDisplay = formattedElapsedFromClock()
+
+        Text("Elapsed: \(elapsedDisplay)")
+            .font(.title3.monospacedDigit())
+
+        HStack(spacing: 12) {
+            if raceStartDate == nil {
+                if raceAccumulatedElapsed > 0 {
+                    Button("Resume Clock") {
+                        startCrossCountryClock()
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.small)
+
+                    Button("Reset Clock", role: .destructive) {
+                        resetCrossCountryClock()
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                } else {
+                    Button("Start Clock") {
+                        startCrossCountryClock()
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.small)
+                }
+            } else {
+                Button("Pause Clock") {
+                    pauseCrossCountryClock()
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+
+                Button("Reset Clock", role: .destructive) {
+                    resetCrossCountryClock()
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+            }
+        }
     }
 
     @MainActor
@@ -850,6 +1138,7 @@ struct ReporterConsoleView: View {
         } else {
             applyDefaults()
         }
+        didLoadInitialState = true
     }
 
     @MainActor
@@ -864,12 +1153,55 @@ struct ReporterConsoleView: View {
         clockMinutes = 0
         clockSeconds = 0
 
+        eventLog = summary
+            .components(separatedBy: "\n")
+            .filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+            .map { LoggedEvent(text: $0) }
+
+        if !state.topFinishers.isEmpty {
+            finishers = state.topFinishers.enumerated().map { index, finisher in
+                FinisherEntry(
+                    place: index + 1,
+                    elapsed: timeInterval(from: finisher.finishTime),
+                    name: finisher.name == "Pending" ? "" : finisher.name,
+                    school: finisher.school
+                )
+            }
+        } else {
+            finishers = []
+        }
+
+        if sportType == .some(.crossCountry) {
+            summary = finishersSummaryText
+        } else {
+            summary = eventLog.map { $0.text }.joined(separator: "\n")
+        }
+
+        gameClockTimer?.invalidate()
+        gameClockTimer = nil
+        isGameClockRunning = false
+        gameClockStartDate = nil
+
+        if sportType == .some(.crossCountry) {
+            raceTimer?.invalidate()
+            raceTimer = nil
+            raceStartDate = nil
+            raceAccumulatedElapsed = Double(clockMinutes * 60 + clockSeconds)
+        } else {
+            raceTimer?.invalidate()
+            raceTimer = nil
+            raceStartDate = nil
+            raceAccumulatedElapsed = 0
+        }
+
         let remaining = state.currentClockRemaining() ?? state.clockRemaining ?? 0
         if remaining > 0 {
             let total = Int(remaining.rounded(.down))
             clockMinutes = total / 60
             clockSeconds = total % 60
         }
+
+        gameClockRemainingSeconds = clockMinutes * 60 + clockSeconds
     }
 
     @MainActor
@@ -881,6 +1213,16 @@ struct ReporterConsoleView: View {
         highlightIcon = sportType?.iconName
         clockMinutes = 0
         clockSeconds = 0
+        finishers = []
+        eventLog = []
+        summary = ""
+        knownScorers.removeAll()
+        isGameClockRunning = false
+        gameClockTimer?.invalidate()
+        gameClockTimer = nil
+        gameClockStartDate = nil
+        gameClockRemainingSeconds = 0
+        raceAccumulatedElapsed = 0
 
         let remaining = max(event.eventDate.timeIntervalSince(Date()), 0)
         if remaining > 0 {
@@ -888,34 +1230,66 @@ struct ReporterConsoleView: View {
             clockMinutes = total / 60
             clockSeconds = total % 60
         }
+
+        gameClockRemainingSeconds = clockMinutes * 60 + clockSeconds
     }
 
     @MainActor
-    private func publishUpdate() {
+    private func publishUpdate(auto: Bool = false) {
         guard let sportType else {
-            errorMessage = "This sport does not yet support Live Activities."
+            if !auto {
+                errorMessage = "This sport does not yet support Live Activities."
+            }
             return
         }
 
-        isSaving = true
-        errorMessage = nil
+        if !auto {
+            isSaving = true
+            errorMessage = nil
+        }
 
         Task {
             let now = Date()
             let clockTotal = max(0, clockMinutes * 60 + clockSeconds)
 
+            let finishersState = finishers
+                .sorted { $0.place < $1.place }
+                .map { entry in
+                    SportsActivityAttributes.Finisher(
+                        position: entry.place,
+                        name: entry.name.isEmpty ? "Pending" : entry.name,
+                        school: entry.school,
+                        finishTime: stringFromElapsed(entry.elapsed)
+                    )
+                }
+
+            let summaryText: String = {
+                if !summary.isEmpty {
+                    return summary
+                }
+                if !eventLog.isEmpty {
+                    return eventLog.map { $0.text }.joined(separator: "\n")
+                }
+                if sportType == .crossCountry {
+                    return finishersSummaryText
+                }
+                return ""
+            }()
+
+            let icon = highlightIcon ?? sportType.iconName
+
             let state = SportsActivityAttributes.ContentState(
                 status: status,
-                homeScore: sportType == .some(.crossCountry) ? nil : homeScore,
-                awayScore: sportType == .some(.crossCountry) ? nil : awayScore,
+                homeScore: sportType == .crossCountry ? nil : homeScore,
+                awayScore: sportType == .crossCountry ? nil : awayScore,
                 periodLabel: periodLabel.isEmpty ? nil : periodLabel,
                 clockRemaining: status == .live ? Double(clockTotal) : nil,
                 clockLastUpdated: status == .live ? now : nil,
-                possession: sportType == .some(.crossCountry) ? nil : possession,
-                lastEventSummary: summary.isEmpty ? nil : summary,
+                possession: sportType == .crossCountry ? nil : possession,
+                lastEventSummary: summaryText.isEmpty ? nil : summaryText,
                 lastEventDetail: nil,
-                highlightIcon: highlightIcon ?? sportType.iconName,
-                topFinishers: [],
+                highlightIcon: icon,
+                topFinishers: finishersState,
                 teamResults: [],
                 updatedAt: now,
                 reporterName: reporterName
@@ -927,7 +1301,7 @@ struct ReporterConsoleView: View {
                 eventId: event.id,
                 sport: sportType,
                 state: state,
-                summary: summary.isEmpty ? nil : summary,
+                summary: summaryText.isEmpty ? nil : summaryText,
                 reporterId: reporterId,
                 reporterName: reporterName
             )
@@ -935,13 +1309,19 @@ struct ReporterConsoleView: View {
             do {
                 try await liveActivityManager.publish(update: update)
                 await MainActor.run {
-                    isSaving = false
-                    dismiss()
+                    if auto {
+                        isSaving = false
+                    } else {
+                        isSaving = false
+                        dismiss()
+                    }
                 }
             } catch {
                 await MainActor.run {
                     errorMessage = error.localizedDescription
-                    isSaving = false
+                    if !auto {
+                        isSaving = false
+                    }
                 }
             }
         }
@@ -950,6 +1330,11 @@ struct ReporterConsoleView: View {
     @MainActor
     private func releaseClaim() {
         isSaving = true
+        gameClockTimer?.invalidate()
+        gameClockTimer = nil
+        isGameClockRunning = false
+        raceTimer?.invalidate()
+        raceTimer = nil
         Task {
             await liveActivityManager.releaseReporter(eventId: event.id)
             await MainActor.run {
@@ -966,6 +1351,336 @@ struct ReporterConsoleView: View {
         case .completed: return .final
         case .cancelled: return .final
         }
+    }
+
+    @ViewBuilder
+    private var scorerInputField: some View {
+        TextField("Scorer name", text: $scorerInput)
+            .textInputAutocapitalization(.words)
+
+        if !filteredKnownScorers.isEmpty {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(filteredKnownScorers, id: \.self) { name in
+                        Button(name) {
+                            chooseKnownScorer(name)
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                    }
+                }
+                .padding(.vertical, 4)
+            }
+        }
+    }
+
+    private var filteredKnownScorers: [String] {
+        let query = scorerInput.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return Array(knownScorers)
+            .filter { query.isEmpty || $0.lowercased().contains(query) }
+            .sorted()
+    }
+
+    private enum FootballQuickEvent {
+        case touchdown
+        case fieldGoal
+        case safety
+        case extraPoint
+
+        var points: Int {
+            switch self {
+            case .touchdown: return 6
+            case .fieldGoal: return 3
+            case .safety: return 2
+            case .extraPoint: return 1
+            }
+        }
+
+        var label: String {
+            switch self {
+            case .touchdown: return "Touchdown"
+            case .fieldGoal: return "Field Goal"
+            case .safety: return "Safety"
+            case .extraPoint: return "Extra Point"
+            }
+        }
+    }
+
+    private func handleFootballEvent(_ event: FootballQuickEvent) {
+        guard sportType == .some(.football) else { return }
+
+        adjustScore(for: selectedScoringTeam, points: event.points)
+        status = .live
+
+        let scorerName = scorerInput.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !scorerName.isEmpty {
+            knownScorers.insert(scorerName)
+        }
+
+        let teamName = teamDisplayName(selectedScoringTeam)
+        let description = scorerName.isEmpty
+            ? "\(timestampString()) - \(teamName) \(event.label)"
+            : "\(timestampString()) - \(teamName) \(event.label) by \(scorerName)"
+
+        appendEvent(description)
+        scorerInput = ""
+        scheduleAutoPublish()
+    }
+
+    private func recordSoccerGoal(for team: SportsActivityAttributes.TeamSide) {
+        guard sportType == .some(.soccer) else { return }
+
+        adjustScore(for: team, points: 1)
+        status = .live
+
+        let scorerName = scorerInput.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !scorerName.isEmpty {
+            knownScorers.insert(scorerName)
+        }
+
+        let teamName = teamDisplayName(team)
+        let description = scorerName.isEmpty
+            ? "\(timestampString()) - \(teamName) Goal"
+            : "\(timestampString()) - \(teamName) Goal by \(scorerName)"
+
+        appendEvent(description)
+        scorerInput = ""
+        scheduleAutoPublish()
+    }
+
+    private func adjustScore(for team: SportsActivityAttributes.TeamSide, points: Int) {
+        if team == .middlesex {
+            homeScore = max(0, homeScore + points)
+        } else {
+            awayScore = max(0, awayScore + points)
+        }
+    }
+
+    private func appendEvent(_ text: String) {
+        if text.isEmpty { return }
+        eventLog.insert(LoggedEvent(text: text), at: 0)
+        if eventLog.count > 25 {
+            eventLog = Array(eventLog.prefix(25))
+        }
+        if sportType != .some(.crossCountry) {
+            summary = eventLog.map { $0.text }.joined(separator: "\n")
+        }
+        scheduleAutoPublish()
+    }
+
+    private func removeEvent(_ id: UUID) {
+        eventLog.removeAll { $0.id == id }
+        if sportType != .some(.crossCountry) {
+            summary = eventLog.map { $0.text }.joined(separator: "\n")
+        }
+        scheduleAutoPublish()
+    }
+
+    private func chooseKnownScorer(_ name: String) {
+        scorerInput = name
+    }
+
+    private func timestampString() -> String {
+        String(format: "%02d:%02d", max(0, clockMinutes), max(0, clockSeconds))
+    }
+
+    private func teamDisplayName(_ team: SportsActivityAttributes.TeamSide) -> String {
+        switch team {
+        case .middlesex:
+            return "Middlesex"
+        case .opponent:
+            return event.opponent
+        }
+    }
+
+    private func startCrossCountryClock() {
+        if raceStartDate == nil {
+            raceStartDate = Date()
+            status = .live
+            updateCrossCountryClock()
+            raceTimer?.invalidate()
+            raceTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
+                DispatchQueue.main.async {
+                    updateCrossCountryClock()
+                }
+            }
+            scheduleAutoPublish()
+        }
+    }
+
+    private func resetCrossCountryClock() {
+        raceTimer?.invalidate()
+        raceTimer = nil
+        raceStartDate = nil
+        raceAccumulatedElapsed = 0
+        clockMinutes = 0
+        clockSeconds = 0
+        scheduleAutoPublish()
+    }
+
+    private func updateCrossCountryClock() {
+        let elapsed = totalRaceElapsed()
+        clockMinutes = max(0, Int(elapsed) / 60)
+        clockSeconds = max(0, Int(elapsed) % 60)
+        // NOTE: Do NOT publish on every tick - TimelineView handles UI updates
+        // Clock updates are calculated in real-time by the Live Activity widget
+    }
+
+    private func pauseCrossCountryClock() {
+        guard let start = raceStartDate else { return }
+        raceAccumulatedElapsed += Date().timeIntervalSince(start)
+        raceStartDate = nil
+        raceTimer?.invalidate()
+        raceTimer = nil
+        updateCrossCountryClock()
+        scheduleAutoPublish()
+    }
+
+    private func logCrossCountryFinisher() {
+        if raceStartDate == nil && raceAccumulatedElapsed == 0 {
+            startCrossCountryClock()
+        }
+
+        let elapsed: TimeInterval = totalRaceElapsed()
+
+        let place = finishers.count + 1
+        finishers.append(FinisherEntry(place: place, elapsed: elapsed))
+        appendEvent("Finisher #\(place) recorded at \(formattedElapsed(elapsed))")
+        summary = finishersSummaryText
+        scheduleAutoPublish()
+    }
+
+    private func removeFinisher(withId id: UUID) {
+        finishers.removeAll { $0.id == id }
+        recalculateFinisherPlaces()
+        summary = finishersSummaryText
+        scheduleAutoPublish()
+    }
+
+    private func recalculateFinisherPlaces() {
+        finishers = finishers
+            .sorted { $0.place < $1.place }
+            .enumerated()
+            .map { index, entry in
+                var updated = entry
+                updated.place = index + 1
+                return updated
+            }
+    }
+
+    private func formattedElapsedFromClock() -> String {
+        if sportType == .some(.crossCountry) {
+            return formattedElapsed(totalRaceElapsed())
+        } else {
+            return formattedElapsed(TimeInterval(clockMinutes * 60 + clockSeconds))
+        }
+    }
+
+    private func formattedElapsed(_ interval: TimeInterval) -> String {
+        let total = max(0, Int(interval.rounded(.down)))
+        let minutes = total / 60
+        let seconds = total % 60
+        return String(format: "%02d:%02d", minutes, seconds)
+    }
+
+    private func stringFromElapsed(_ interval: TimeInterval) -> String {
+        formattedElapsed(interval)
+    }
+
+    private func totalRaceElapsed() -> TimeInterval {
+        if let start = raceStartDate {
+            return raceAccumulatedElapsed + Date().timeIntervalSince(start)
+        } else {
+            return raceAccumulatedElapsed
+        }
+    }
+
+    private var finishersSummaryText: String {
+        guard !finishers.isEmpty else { return "" }
+        return finishers
+            .sorted { $0.place < $1.place }
+            .map { entry in
+                let name = entry.name.isEmpty ? "Pending" : entry.name
+                let school = entry.school.isEmpty ? "" : " (\(entry.school))"
+                return "#\(entry.place) \(name)\(school) – \(formattedElapsed(entry.elapsed))"
+            }
+            .joined(separator: "\n")
+    }
+
+    private func timeInterval(from finishTime: String) -> TimeInterval {
+        let components = finishTime.split(separator: ":")
+        guard components.count == 2,
+              let minutes = Int(components[0]),
+              let seconds = Int(components[1]) else {
+            return 0
+        }
+        return TimeInterval(minutes * 60 + seconds)
+    }
+
+    private func scheduleAutoPublish(immediate: Bool = false) {
+        guard didLoadInitialState else { return }
+
+        if immediate {
+            autoPublishTask?.cancel()
+            autoPublishTask = nil
+            publishUpdate(auto: true)
+            return
+        }
+
+        autoPublishTask?.cancel()
+        autoPublishTask = Task {
+            try? await Task.sleep(nanoseconds: 300_000_000)
+            await MainActor.run {
+                publishUpdate(auto: true)
+            }
+        }
+    }
+
+    private func startGameClock() {
+        gameClockTimer?.invalidate()
+        gameClockRemainingSeconds = max(0, clockMinutes * 60 + clockSeconds)
+        guard gameClockRemainingSeconds > 0 else { return }
+        gameClockStartDate = Date()
+        isGameClockRunning = true
+        status = .live
+        gameClockTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
+            DispatchQueue.main.async {
+                updateGameClockTick()
+            }
+        }
+        // Publish once when clock starts, then TimelineView handles the ticking
+        scheduleAutoPublish()
+    }
+
+    private func pauseGameClock() {
+        updateGameClockTick()
+        gameClockTimer?.invalidate()
+        gameClockTimer = nil
+        isGameClockRunning = false
+        gameClockStartDate = nil
+        gameClockRemainingSeconds = max(0, clockMinutes * 60 + clockSeconds)
+        scheduleAutoPublish()
+    }
+
+    private func resetGameClock() {
+        pauseGameClock()
+        clockMinutes = 0
+        clockSeconds = 0
+        gameClockRemainingSeconds = 0
+        scheduleAutoPublish()
+    }
+
+    private func updateGameClockTick() {
+        guard isGameClockRunning, let startDate = gameClockStartDate else { return }
+        let elapsed = Int(Date().timeIntervalSince(startDate))
+        let remaining = max(0, gameClockRemainingSeconds - elapsed)
+        clockMinutes = remaining / 60
+        clockSeconds = remaining % 60
+        if remaining == 0 {
+            pauseGameClock()
+        }
+        // NOTE: Do NOT publish on every tick - TimelineView handles UI updates
+        // Only publish when clock reaches 0 (handled by pauseGameClock above)
     }
 }
 

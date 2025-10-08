@@ -517,36 +517,32 @@ private extension ClassActivityAttributes.ContentState {
 
 @available(iOS 16.2, *)
 private extension SportsActivityAttributes.ContentState {
+    /// Calculates the current remaining time on the clock in real-time
+    /// This allows the TimelineView to show ticking clock without constant updates
+    func currentClockRemaining(at date: Date = Date()) -> TimeInterval? {
+        guard let clockRemaining = clockRemaining else { return nil }
+
+        // If the game is not live, just return the stored value
+        guard status == .live else {
+            return clockRemaining
+        }
+
+        // If we have a last updated time, calculate elapsed time since then
+        if let lastUpdated = clockLastUpdated {
+            let elapsed = date.timeIntervalSince(lastUpdated)
+            let remaining = max(0, clockRemaining - elapsed)
+            return remaining
+        }
+
+        // No last updated time, return stored value
+        return clockRemaining
+    }
+
     func formattedClock(at date: Date = Date()) -> String? {
         guard let remaining = currentClockRemaining(at: date) else { return nil }
         let minutes = Int(remaining / 60)
         let seconds = Int(remaining.truncatingRemainder(dividingBy: 60))
         return String(format: "%d:%02d", minutes, seconds)
-    }
-}
-
-@available(iOS 16.2, *)
-private extension SportsActivityAttributes.SportType {
-    var themeColor: Color {
-        switch self {
-        case .soccer:
-            return Color(red: 0.12, green: 0.62, blue: 0.36)
-        case .football:
-            return Color(red: 0.65, green: 0.22, blue: 0.17)
-        case .crossCountry:
-            return Color(red: 0.18, green: 0.34, blue: 0.72)
-        }
-    }
-
-    var iconName: String {
-        switch self {
-        case .soccer:
-            return "soccerball"
-        case .football:
-            return "sportscourt"
-        case .crossCountry:
-            return "figure.run"
-        }
     }
 }
 

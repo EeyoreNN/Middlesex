@@ -90,7 +90,7 @@ class SportsLiveActivityManager: ObservableObject {
         startClockRefreshTimer(for: event.id)
     }
 
-    func stopFollowing(eventId: String, userPreferences: UserPreferences = .shared, dismissAfter: TimeInterval = 60) async {
+    func stopFollowing(eventId: String, userPreferences: UserPreferences, dismissAfter: TimeInterval = 60) async {
         guard let activity = activeActivities[eventId] else { return }
         activeActivities.removeValue(forKey: eventId)
 
