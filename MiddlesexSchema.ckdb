@@ -230,6 +230,7 @@ DEFINE SCHEMA
         createdAt       TIMESTAMP SORTABLE,
         updatedAt       TIMESTAMP SORTABLE,
         GRANT CREATE TO "_icloud",
+        GRANT CREATE TO "_server",
         GRANT READ TO "_world",
         GRANT WRITE TO "_icloud"
     );
@@ -249,6 +250,7 @@ DEFINE SCHEMA
         expiresAt       TIMESTAMP,
         status          STRING,
         GRANT CREATE TO "_icloud",
+        GRANT CREATE TO "_server",
         GRANT READ TO "_world",
         GRANT WRITE TO "_icloud"
     );
@@ -268,6 +270,7 @@ DEFINE SCHEMA
         deviceName      STRING,
         createdAt       TIMESTAMP SORTABLE,
         GRANT CREATE TO "_icloud",
+        GRANT CREATE TO "_server",
         GRANT READ TO "_world",
         GRANT WRITE TO "_icloud"
     );
