@@ -63,6 +63,7 @@ struct SportsView: View {
 
 struct UpcomingEventsView: View {
     @StateObject private var cloudKitManager = CloudKitManager.shared
+    @State private var selectedEvent: SportsEvent?
 
     var body: some View {
         Group {
@@ -84,7 +85,9 @@ struct UpcomingEventsView: View {
                 ScrollView {
                     LazyVStack(spacing: 16) {
                         ForEach(cloudKitManager.sportsEvents) { event in
-                            SportsEventCard(event: event)
+                            SportsEventCard(event: event) {
+                                selectedEvent = event
+                            }
                         }
 
                         Spacer(minLength: 80)
@@ -92,6 +95,10 @@ struct UpcomingEventsView: View {
                     .padding()
                 }
             }
+        }
+        .sheet(item: $selectedEvent) { event in
+            SportsEventDetailView(event: event)
+                .environmentObject(cloudKitManager)
         }
         .task {
             await cloudKitManager.fetchUpcomingSportsEvents()
@@ -177,6 +184,7 @@ struct TeamsView: View {
 
 struct SportsEventCard: View {
     let event: SportsEvent
+    var onSelect: (() -> Void)? = nil
     @EnvironmentObject private var userPreferences: UserPreferences
 
     @State private var isFollowLoading = false
@@ -192,6 +200,10 @@ struct SportsEventCard: View {
         .background(MiddlesexTheme.cardBackground)
         .cornerRadius(16)
         .shadow(color: Color.black.opacity(0.08), radius: 6, x: 0, y: 3)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            onSelect?()
+        }
         .alert(alertMessage ?? "", isPresented: Binding(
             get: { alertMessage != nil },
             set: { _ in alertMessage = nil }
@@ -333,6 +345,137 @@ struct SportsEventCard: View {
     }
 }
 
+struct SportsEventDetailView: View {
+    @EnvironmentObject private var userPreferences: UserPreferences
+    @Environment(\.dismiss) private var dismiss
+
+    let event: SportsEvent
+
+    @State private var isFollowLoading = false
+    @State private var isClaimLoading = false
+    @State private var alertMessage: String?
+
+    var body: some View {
+        NavigationView {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    headerSection
+                    infoSection
+                    actionSection
+                }
+                .padding()
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .navigationTitle(event.opponent)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done") {
+                        dismiss()
+                    }
+                }
+            }
+        }
+        .alert(alertMessage ?? "", isPresented: Binding(
+            get: { alertMessage != nil },
+            set: { _ in alertMessage = nil }
+        )) {
+            Button("OK", role: .cancel) { }
+        }
+    }
+
+    private var headerSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 16) {
+                Image(systemName: event.sport.icon)
+                    .font(.largeTitle)
+                    .foregroundColor(MiddlesexTheme.primaryRed)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(event.sport.rawValue)
+                        .font(.title3.bold())
+                    Text(event.eventType.displayName)
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
+
+                Spacer()
+            }
+
+            HStack(spacing: 16) {
+                Label(event.eventDate.formatted(date: .long, time: .omitted), systemImage: "calendar")
+                Label(event.eventDate.formatted(date: .omitted, time: .shortened), systemImage: "clock")
+            }
+            .font(.subheadline)
+            .foregroundColor(.secondary)
+        }
+    }
+
+    private var infoSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            switch event.status {
+            case .scheduled:
+                Text("Scheduled")
+                    .font(.headline)
+            case .inProgress:
+                Text("In Progress")
+                    .font(.headline)
+                    .foregroundColor(.orange)
+            case .completed:
+                if let result = event.result {
+                    Text(result)
+                        .font(.headline)
+                        .foregroundColor(result.hasPrefix("W") ? .green : result.hasPrefix("L") ? .red : .orange)
+                } else {
+                    Text("Final")
+                        .font(.headline)
+                }
+            case .cancelled:
+                Text("Cancelled")
+                    .font(.headline)
+                    .foregroundColor(.red)
+            }
+
+            VStack(alignment: .leading, spacing: 12) {
+                Label(event.location, systemImage: "mappin.and.ellipse")
+                Label(event.isHome ? "Home Game" : "Away Game", systemImage: event.isHome ? "house.fill" : "road.lanes")
+                Label("Season: \(event.season.displayName)", systemImage: "leaf")
+                Label("Year: \(event.year)", systemImage: "calendar.circle")
+            }
+            .font(.subheadline)
+            .foregroundColor(.secondary)
+
+            if !event.notes.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Notes")
+                        .font(.headline)
+                    Text(event.notes)
+                        .font(.body)
+                        .foregroundColor(.secondary)
+                }
+            }
+        }
+    }
+
+    private var actionSection: some View {
+        Group {
+            if #available(iOS 16.2, *) {
+                SportsLiveControlsView(
+                    event: event,
+                    isFollowLoading: $isFollowLoading,
+                    isClaimLoading: $isClaimLoading,
+                    alertMessage: $alertMessage,
+                    userPreferences: userPreferences
+                )
+            } else {
+                Text("Live Activities require iOS 16.2 or later.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+        }
+    }
+}
+
 @available(iOS 16.2, *)
 struct SportsLiveControlsView: View {
     let event: SportsEvent
@@ -350,7 +493,7 @@ struct SportsLiveControlsView: View {
                     toggleFollow()
                 } label: {
                     Label(isFollowing ? "Stop Live Updates" : "Follow Live Updates",
-                          systemImage: isFollowing ? "dot.radiowaves.left.and.right.slash" : "dot.radiowaves.left.and.right")
+                          systemImage: isFollowing ? "dot.radiowaves.left.and.right" : "dot.radiowaves.right")
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(.accentColor)

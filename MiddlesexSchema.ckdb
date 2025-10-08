@@ -1,54 +1,21 @@
 DEFINE SCHEMA
 
-    // IMPORTANT: This schema must be uploaded to CloudKit Dashboard
-    // 1. Go to: https://icloud.developer.apple.com/dashboard
-    // 2. Select your app container: iCloud.com.nicholasnoon.Middlesex
-    // 3. Go to Schema → Development → Import Schema
-    // 4. Upload this file
-    // 5. After testing, deploy to Production
-
-    RECORD TYPE MenuItem (
+    RECORD TYPE AdminCode (
         "___createTime" TIMESTAMP,
         "___createdBy"  REFERENCE,
         "___etag"       STRING,
         "___modTime"    TIMESTAMP,
         "___modifiedBy" REFERENCE,
         "___recordID"   REFERENCE QUERYABLE,
+        code            STRING QUERYABLE,
+        expiresAt       TIMESTAMP QUERYABLE SORTABLE,
+        generatedAt     TIMESTAMP QUERYABLE SORTABLE,
+        generatedBy     STRING,
         id              STRING,
-        date            TIMESTAMP QUERYABLE SORTABLE,
-        mealType        STRING QUERYABLE,
-        title           STRING,
-        description     STRING,
-        category        STRING QUERYABLE,
-        allergens       STRING,
-        isVegetarian    INT64,
-        isVegan         INT64,
-        createdAt       TIMESTAMP,
-        updatedAt       TIMESTAMP,
-        GRANT READ TO "_world"
-    );
-
-    RECORD TYPE ClassSchedule (
-        "___createTime" TIMESTAMP,
-        "___createdBy"  REFERENCE,
-        "___etag"       STRING,
-        "___modTime"    TIMESTAMP,
-        "___modifiedBy" REFERENCE,
-        "___recordID"   REFERENCE QUERYABLE,
-        id              STRING,
-        weekType        STRING QUERYABLE,
-        period          INT64 QUERYABLE SORTABLE,
-        className       STRING,
-        teacher         STRING,
-        room            STRING,
-        startTime       STRING,
-        endTime         STRING,
-        color           STRING,
-        isActive        INT64 QUERYABLE,
-        semester        STRING,
-        year            INT64,
-        createdAt       TIMESTAMP,
-        GRANT READ TO "_world"
+        isUsed          INT64 QUERYABLE,
+        usedAt          TIMESTAMP,
+        usedBy          STRING,
+        GRANT READ, CREATE, WRITE TO "_icloud"
     );
 
     RECORD TYPE Announcement (
@@ -58,111 +25,21 @@ DEFINE SCHEMA
         "___modTime"    TIMESTAMP,
         "___modifiedBy" REFERENCE,
         "___recordID"   REFERENCE QUERYABLE,
-        id              STRING,
-        title           STRING,
-        body            STRING,
-        publishDate     TIMESTAMP QUERYABLE SORTABLE,
-        expiryDate      TIMESTAMP QUERYABLE SORTABLE,
-        priority        STRING QUERYABLE,
-        category        STRING QUERYABLE,
         author          STRING,
+        body            STRING,
+        category        STRING QUERYABLE,
+        createdAt       TIMESTAMP,
+        expiryDate      TIMESTAMP QUERYABLE SORTABLE,
+        id              STRING,
         imageURL        STRING,
         isActive        INT64 QUERYABLE,
-        isPinned        INT64 QUERYABLE SORTABLE,
         isCritical      INT64 QUERYABLE,
-        createdAt       TIMESTAMP,
-        updatedAt       TIMESTAMP,
-        GRANT CREATE TO "_icloud",
-        GRANT READ TO "_icloud",
-        GRANT WRITE TO "_icloud"
-    );
-
-    RECORD TYPE SportsEvent (
-        "___createTime"  TIMESTAMP,
-        "___createdBy"   REFERENCE,
-        "___etag"        STRING,
-        "___modTime"     TIMESTAMP,
-        "___modifiedBy"  REFERENCE,
-        "___recordID"    REFERENCE QUERYABLE,
-        id               STRING,
-        sport            STRING QUERYABLE,
-        eventType        STRING,
-        opponent         STRING,
-        eventDate        TIMESTAMP QUERYABLE SORTABLE,
-        location         STRING,
-        isHome           INT64,
-        middlesexScore   INT64,
-        opponentScore    INT64,
-        status           STRING QUERYABLE,
-        season           STRING QUERYABLE,
-        year             INT64,
-        notes            STRING,
-        createdAt        TIMESTAMP,
-        updatedAt        TIMESTAMP,
-        GRANT READ TO "_world"
-    );
-
-    RECORD TYPE SportsTeam (
-        "___createTime" TIMESTAMP,
-        "___createdBy"  REFERENCE,
-        "___etag"       STRING,
-        "___modTime"    TIMESTAMP,
-        "___modifiedBy" REFERENCE,
-        "___recordID"   REFERENCE QUERYABLE,
-        id              STRING,
-        sport           STRING QUERYABLE,
-        teamName        STRING,
-        season          STRING QUERYABLE,
-        year            INT64,
-        wins            INT64,
-        losses          INT64,
-        ties            INT64,
-        coachName       STRING,
-        captains        STRING,
-        rosterURL       STRING,
-        isActive        INT64 QUERYABLE,
-        createdAt       TIMESTAMP,
-        updatedAt       TIMESTAMP,
-        GRANT READ TO "_world"
-    );
-
-    RECORD TYPE AdminCode (
-        "___createTime" TIMESTAMP,
-        "___createdBy"  REFERENCE,
-        "___etag"       STRING,
-        "___modTime"    TIMESTAMP,
-        "___modifiedBy" REFERENCE,
-        "___recordID"   REFERENCE QUERYABLE,
-        id              STRING,
-        code            STRING QUERYABLE,
-        generatedBy     STRING,
-        generatedAt     TIMESTAMP QUERYABLE SORTABLE,
-        expiresAt       TIMESTAMP QUERYABLE SORTABLE,
-        isUsed          INT64 QUERYABLE,
-        usedBy          STRING,
-        usedAt          TIMESTAMP,
-        GRANT CREATE TO "_icloud",
-        GRANT READ TO "_icloud",
-        GRANT WRITE TO "_icloud"
-    );
-
-    RECORD TYPE SpecialSchedule (
-        "___createTime" TIMESTAMP,
-        "___createdBy"  REFERENCE,
-        "___etag"       STRING,
-        "___modTime"    TIMESTAMP,
-        "___modifiedBy" REFERENCE,
-        "___recordID"   REFERENCE QUERYABLE,
-        id              STRING,
-        date            TIMESTAMP QUERYABLE SORTABLE,
+        isPinned        INT64 QUERYABLE SORTABLE,
+        priority        STRING QUERYABLE,
+        publishDate     TIMESTAMP QUERYABLE SORTABLE,
         title           STRING,
-        blocksData      STRING,
-        createdBy       STRING,
-        createdAt       TIMESTAMP,
-        isActive        INT64 QUERYABLE,
-        GRANT CREATE TO "_icloud",
-        GRANT READ TO "_icloud",
-        GRANT WRITE TO "_icloud"
+        updatedAt       TIMESTAMP,
+        GRANT READ, CREATE, WRITE TO "_icloud"
     );
 
     RECORD TYPE AppSettings (
@@ -175,11 +52,32 @@ DEFINE SCHEMA
         id              STRING QUERYABLE,
         settingKey      STRING QUERYABLE,
         settingValue    STRING,
-        updatedBy       STRING,
         updatedAt       TIMESTAMP SORTABLE,
-        GRANT CREATE TO "_icloud",
-        GRANT READ TO "_icloud",
-        GRANT WRITE TO "_icloud"
+        updatedBy       STRING,
+        GRANT READ, CREATE, WRITE TO "_icloud"
+    );
+
+    RECORD TYPE ClassSchedule (
+        "___createTime" TIMESTAMP,
+        "___createdBy"  REFERENCE,
+        "___etag"       STRING,
+        "___modTime"    TIMESTAMP,
+        "___modifiedBy" REFERENCE,
+        "___recordID"   REFERENCE QUERYABLE,
+        className       STRING,
+        color           STRING,
+        createdAt       TIMESTAMP,
+        endTime         STRING,
+        id              STRING,
+        isActive        INT64 QUERYABLE,
+        period          INT64 QUERYABLE SORTABLE,
+        room            STRING,
+        semester        STRING,
+        startTime       STRING,
+        teacher         STRING,
+        weekType        STRING QUERYABLE,
+        year            INT64,
+        GRANT READ TO "_world"
     );
 
     RECORD TYPE CustomClass (
@@ -189,70 +87,79 @@ DEFINE SCHEMA
         "___modTime"    TIMESTAMP,
         "___modifiedBy" REFERENCE,
         "___recordID"   REFERENCE QUERYABLE,
-        id              STRING QUERYABLE,
         className       STRING QUERYABLE,
-        teacherName     STRING,
-        roomNumber      STRING,
         department      STRING QUERYABLE,
-        submittedBy     STRING,
-        submittedAt     TIMESTAMP QUERYABLE SORTABLE,
+        id              STRING QUERYABLE,
         isApproved      INT64 QUERYABLE,
-        GRANT CREATE TO "_icloud",
-        GRANT READ TO "_icloud",
-        GRANT WRITE TO "_icloud"
+        roomNumber      STRING,
+        submittedAt     TIMESTAMP QUERYABLE SORTABLE,
+        submittedBy     STRING,
+        teacherName     STRING,
+        GRANT READ, CREATE, WRITE TO "_icloud"
     );
 
-    RECORD TYPE SportsLiveUpdate (
+    RECORD TYPE MenuItem (
         "___createTime" TIMESTAMP,
         "___createdBy"  REFERENCE,
         "___etag"       STRING,
         "___modTime"    TIMESTAMP,
         "___modifiedBy" REFERENCE,
         "___recordID"   REFERENCE QUERYABLE,
-        id              STRING QUERYABLE,
-        eventId         STRING QUERYABLE,
-        sport           STRING,
-        status          STRING,
-        homeScore       INT64,
-        awayScore       INT64,
-        periodLabel     STRING,
-        clockRemaining  DOUBLE,
-        clockLastUpdated TIMESTAMP,
-        possession      STRING,
-        lastEventSummary STRING,
-        lastEventDetail STRING,
-        highlightIcon   STRING,
-        topFinishersJSON STRING,
-        teamResultsJSON  STRING,
-        summary         STRING,
-        reporterId      STRING,
-        reporterName    STRING,
-        createdAt       TIMESTAMP SORTABLE,
-        updatedAt       TIMESTAMP SORTABLE,
-        GRANT CREATE TO "_icloud",
-        GRANT CREATE TO "_server",
-        GRANT READ TO "_world",
-        GRANT WRITE TO "_icloud"
+        allergens       STRING,
+        category        STRING QUERYABLE,
+        createdAt       TIMESTAMP,
+        date            TIMESTAMP QUERYABLE SORTABLE,
+        description     STRING,
+        id              STRING,
+        isVegan         INT64,
+        isVegetarian    INT64,
+        mealType        STRING QUERYABLE,
+        title           STRING,
+        updatedAt       TIMESTAMP,
+        GRANT READ TO "_world"
     );
 
-    RECORD TYPE SportsReporterClaim (
+    RECORD TYPE SpecialSchedule (
         "___createTime" TIMESTAMP,
         "___createdBy"  REFERENCE,
         "___etag"       STRING,
         "___modTime"    TIMESTAMP,
         "___modifiedBy" REFERENCE,
         "___recordID"   REFERENCE QUERYABLE,
-        id              STRING QUERYABLE,
-        eventId         STRING QUERYABLE,
-        reporterId      STRING,
-        reporterName    STRING,
-        claimedAt       TIMESTAMP,
-        expiresAt       TIMESTAMP,
-        status          STRING,
+        blocksData      STRING,
+        createdAt       TIMESTAMP,
+        createdBy       STRING,
+        date            TIMESTAMP QUERYABLE SORTABLE,
+        id              STRING,
+        isActive        INT64 QUERYABLE,
+        title           STRING,
+        GRANT READ, CREATE, WRITE TO "_icloud"
+    );
+
+    RECORD TYPE SportsEvent (
+        "___createTime" TIMESTAMP,
+        "___createdBy"  REFERENCE,
+        "___etag"       STRING,
+        "___modTime"    TIMESTAMP,
+        "___modifiedBy" REFERENCE,
+        "___recordID"   REFERENCE QUERYABLE,
+        createdAt       TIMESTAMP,
+        eventDate       TIMESTAMP QUERYABLE SORTABLE,
+        eventType       STRING,
+        id              STRING,
+        isHome          INT64,
+        location        STRING,
+        middlesexScore  INT64,
+        notes           STRING,
+        opponent        STRING,
+        opponentScore   INT64,
+        season          STRING QUERYABLE,
+        sport           STRING QUERYABLE,
+        status          STRING QUERYABLE,
+        updatedAt       TIMESTAMP,
+        year            INT64,
         GRANT CREATE TO "_icloud",
-        GRANT CREATE TO "_server",
-        GRANT READ TO "_world",
-        GRANT WRITE TO "_icloud"
+        GRANT READ TO "_world"
     );
 
     RECORD TYPE SportsLiveSubscription (
@@ -262,15 +169,101 @@ DEFINE SCHEMA
         "___modTime"    TIMESTAMP,
         "___modifiedBy" REFERENCE,
         "___recordID"   REFERENCE QUERYABLE,
-        id              STRING QUERYABLE,
-        eventId         STRING QUERYABLE,
-        userId          STRING,
-        sport           STRING,
-        pushToken       STRING,
-        deviceName      STRING,
         createdAt       TIMESTAMP SORTABLE,
-        GRANT CREATE TO "_icloud",
+        deviceName      STRING,
+        eventId         STRING QUERYABLE,
+        id              STRING QUERYABLE,
+        pushToken       STRING,
+        sport           STRING,
+        userId          STRING,
+        GRANT CREATE, WRITE TO "_icloud",
         GRANT CREATE TO "_server",
-        GRANT READ TO "_world",
-        GRANT WRITE TO "_icloud"
+        GRANT READ TO "_world"
+    );
+
+    RECORD TYPE SportsLiveUpdate (
+        "___createTime"  TIMESTAMP,
+        "___createdBy"   REFERENCE,
+        "___etag"        STRING,
+        "___modTime"     TIMESTAMP,
+        "___modifiedBy"  REFERENCE,
+        "___recordID"    REFERENCE QUERYABLE,
+        awayScore        INT64,
+        clockLastUpdated TIMESTAMP,
+        clockRemaining   DOUBLE,
+        createdAt        TIMESTAMP SORTABLE,
+        eventId          STRING QUERYABLE,
+        highlightIcon    STRING,
+        homeScore        INT64,
+        id               STRING QUERYABLE,
+        lastEventDetail  STRING,
+        lastEventSummary STRING,
+        periodLabel      STRING,
+        possession       STRING,
+        reporterId       STRING,
+        reporterName     STRING,
+        sport            STRING,
+        status           STRING QUERYABLE,
+        summary          STRING,
+        teamResultsJSON  STRING,
+        topFinishersJSON STRING,
+        updatedAt        TIMESTAMP SORTABLE,
+        GRANT CREATE, WRITE TO "_icloud",
+        GRANT CREATE TO "_server",
+        GRANT READ TO "_world"
+    );
+
+    RECORD TYPE SportsReporterClaim (
+        "___createTime" TIMESTAMP,
+        "___createdBy"  REFERENCE,
+        "___etag"       STRING,
+        "___modTime"    TIMESTAMP,
+        "___modifiedBy" REFERENCE,
+        "___recordID"   REFERENCE QUERYABLE,
+        claimedAt       TIMESTAMP,
+        eventId         STRING QUERYABLE,
+        expiresAt       TIMESTAMP,
+        id              STRING QUERYABLE,
+        reporterId      STRING,
+        reporterName    STRING,
+        status          STRING QUERYABLE,
+        GRANT CREATE, WRITE TO "_icloud",
+        GRANT CREATE TO "_server",
+        GRANT READ TO "_world"
+    );
+
+    RECORD TYPE SportsTeam (
+        "___createTime" TIMESTAMP,
+        "___createdBy"  REFERENCE,
+        "___etag"       STRING,
+        "___modTime"    TIMESTAMP,
+        "___modifiedBy" REFERENCE,
+        "___recordID"   REFERENCE QUERYABLE,
+        captains        STRING,
+        coachName       STRING,
+        createdAt       TIMESTAMP,
+        id              STRING,
+        isActive        INT64 QUERYABLE,
+        losses          INT64,
+        rosterURL       STRING,
+        season          STRING QUERYABLE,
+        sport           STRING QUERYABLE,
+        teamName        STRING,
+        ties            INT64,
+        updatedAt       TIMESTAMP,
+        wins            INT64,
+        year            INT64,
+        GRANT READ TO "_world"
+    );
+
+    RECORD TYPE Users (
+        "___createTime" TIMESTAMP,
+        "___createdBy"  REFERENCE,
+        "___etag"       STRING,
+        "___modTime"    TIMESTAMP,
+        "___modifiedBy" REFERENCE,
+        "___recordID"   REFERENCE,
+        roles           LIST<INT64>,
+        GRANT WRITE TO "_creator",
+        GRANT READ TO "_world"
     );

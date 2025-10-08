@@ -51,7 +51,7 @@ Check that the following fields exist for each record type:
 - `deviceName` (String)
 - `createdAt` (Date)
 
-Grant read access to `_world` for updates and subscriptions so the device can pull them down.
+Grant create access to `_authenticated` (signed-in users) and `_server` (server pushes), and read access to `_world` for updates and subscriptions so the device can pull them down.
 
 ## 3. Configure Push-to-Activity Updates
 
