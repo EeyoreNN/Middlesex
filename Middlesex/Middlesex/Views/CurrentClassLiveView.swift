@@ -46,6 +46,7 @@ struct CurrentClassLiveView: View {
 
         if let block = currentBlock {
             let blockLetter = String(block.block.prefix(1))
+            let isXBlock = block.block.count > 1 && block.block.lowercased().hasSuffix("x")
             let blockToPeriod: [String: Int] = [
                 "A": 1, "B": 2, "C": 3, "D": 4, "E": 5, "F": 6, "G": 7
             ]
@@ -53,12 +54,54 @@ struct CurrentClassLiveView: View {
             if let period = blockToPeriod[blockLetter] {
                 let weekNumber = Calendar.current.component(.weekOfYear, from: currentTime)
                 let weekType: ClassSchedule.WeekType = weekNumber % 2 == 0 ? .red : .white
-                userClass = preferences.getClassWithFallback(for: period, preferredWeekType: weekType)
+                let retrievedClass = preferences.getClassWithFallback(for: period, preferredWeekType: weekType)
+
+                // If this is an X block, check if the class uses X blocks on this day
+                if isXBlock, let retrievedClass = retrievedClass {
+                    let dayName = getCurrentDayName()
+
+                    // Look up the SchoolClass from ClassList to get X block configuration
+                    // Must match both name AND block (if block is specified)
+                    if let schoolClass = ClassList.availableClasses.first(where: {
+                        $0.name == retrievedClass.className && ($0.block == nil || $0.block == blockLetter)
+                    }) {
+                        // Get the appropriate X block days based on week type
+                        let xBlockDays = weekType == .red ? schoolClass.xBlockDaysRed : schoolClass.xBlockDaysWhite
+
+                        // If X block days are defined, check if today is included
+                        if let xBlockDays = xBlockDays {
+                            if !xBlockDays.contains(dayName) {
+                                // This class doesn't use X blocks on this day
+                                userClass = nil
+                                return
+                            }
+                        }
+                        // If xBlockDays is nil, use standard schedule (show all X blocks for this period)
+                    }
+                }
+
+                userClass = retrievedClass
             } else {
                 userClass = nil
             }
         } else {
             userClass = nil
+        }
+    }
+
+    private func getCurrentDayName() -> String {
+        let calendar = Calendar.current
+        let weekday = calendar.component(.weekday, from: currentTime)
+
+        switch weekday {
+        case 1: return "Sunday"
+        case 2: return "Monday"
+        case 3: return "Tuesday"
+        case 4: return "Wednesday"
+        case 5: return "Thursday"
+        case 6: return "Friday"
+        case 7: return "Saturday"
+        default: return "Monday"
         }
     }
 }

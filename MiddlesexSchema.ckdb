@@ -267,3 +267,21 @@ DEFINE SCHEMA
         GRANT WRITE TO "_creator",
         GRANT READ TO "_world"
     );
+
+    RECORD TYPE XBlockMapping (
+        "___createTime" TIMESTAMP,
+        "___createdBy"  REFERENCE,
+        "___etag"       STRING,
+        "___modTime"    TIMESTAMP,
+        "___modifiedBy" REFERENCE,
+        "___recordID"   REFERENCE QUERYABLE,
+        className       STRING QUERYABLE SORTABLE,
+        id              STRING QUERYABLE,
+        submittedAt     TIMESTAMP QUERYABLE SORTABLE,
+        submittedBy     STRING,
+        teacherName     STRING QUERYABLE,
+        voteCount       INT64 QUERYABLE SORTABLE,
+        weekType        STRING QUERYABLE,
+        xBlockDays      STRING,
+        GRANT READ, CREATE, WRITE TO "_icloud"
+    );

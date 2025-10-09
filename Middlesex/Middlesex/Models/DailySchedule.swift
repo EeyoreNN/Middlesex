@@ -4,6 +4,30 @@
 //
 //  Daily schedule with actual times for each block
 //
+//  X Block Schedule by Block:
+//  Red Week:
+//    A: Monday, Thursday
+//    B: Wednesday, Friday
+//    C: Tuesday, Thursday
+//    D: Monday, Saturday
+//    E: Monday, Thursday
+//    F: Wednesday, Friday
+//    G: Tuesday, Saturday
+//
+//  White Week:
+//    A: Monday, Thursday
+//    B: Friday, Saturday
+//    C: Tuesday, Thursday
+//    D: Monday, Wednesday
+//    E: Monday, Thursday
+//    F: Friday, Saturday
+//    G: Tuesday, Wednesday
+//
+//  Note: Individual classes may vary from the standard block schedule
+//  Example: Elements of Novels and Stories (F block) uses X blocks:
+//    - Red Week: Friday only (not Wednesday)
+//    - White Week: Friday and Saturday
+//
 
 import Foundation
 
@@ -23,12 +47,16 @@ struct BlockTime: Identifiable {
             return nil
         }
 
-        var dateComponents = calendar.dateComponents([.year, .month, .day], from: date)
+        // Get start of day in local timezone
+        let startOfDay = calendar.startOfDay(for: date)
+
+        // Add the hours and minutes
+        var dateComponents = DateComponents()
         dateComponents.hour = hour
         dateComponents.minute = minute
         dateComponents.second = 0
 
-        return calendar.date(from: dateComponents)
+        return calendar.date(byAdding: dateComponents, to: startOfDay)
     }
 
     func startDate(on date: Date = Date()) -> Date? {
@@ -44,7 +72,7 @@ struct BlockTime: Identifiable {
               let end = endDate(on: currentTime) else {
             return false
         }
-        return currentTime >= start && currentTime <= end
+        return currentTime >= start && currentTime < end
     }
 
     func progressPercentage(at currentTime: Date = Date()) -> Double {
@@ -291,7 +319,47 @@ struct DailySchedule {
 
     static func getCurrentBlock(at currentTime: Date = Date()) -> BlockTime? {
         let todaySchedule = getSchedule(for: currentTime)
-        return todaySchedule.first { $0.isHappeningNow(at: currentTime) }
+        let calendar = Calendar.current
+
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm:ss"
+        formatter.timeZone = calendar.timeZone
+        let localTimeString = formatter.string(from: currentTime)
+
+        print("📅 getCurrentBlock debug:")
+        print("   Current time (UTC): \(currentTime)")
+        print("   Current time (Local): \(localTimeString)")
+        print("   Timezone: \(calendar.timeZone.identifier)")
+        print("   Day: \(getCurrentDayName())")
+        print("   Week type: \(getCurrentWeekType())")
+        print("   Schedule has \(todaySchedule.count) blocks")
+
+        for block in todaySchedule {
+            if let start = block.startDate(on: currentTime),
+               let end = block.endDate(on: currentTime) {
+                let isNow = currentTime >= start && currentTime < end
+                let startLocal = formatter.string(from: start)
+                let endLocal = formatter.string(from: end)
+
+                // Debug: show exact comparison for Block C
+                if block.block == "C" {
+                    print("   🔍 Block C detailed check:")
+                    print("      Current: \(currentTime.timeIntervalSince1970)")
+                    print("      Start: \(start.timeIntervalSince1970)")
+                    print("      End: \(end.timeIntervalSince1970)")
+                    print("      current >= start: \(currentTime >= start)")
+                    print("      current < end: \(currentTime < end)")
+                    print("      isNow: \(isNow)")
+                }
+
+                print("   Block \(block.block): \(startLocal)-\(endLocal) (defined as \(block.startTime)-\(block.endTime)) \(isNow ? "← NOW" : "")")
+            }
+        }
+
+        let currentBlock = todaySchedule.first { $0.isHappeningNow(at: currentTime) }
+        print("   Result: \(currentBlock?.block ?? "nil")")
+
+        return currentBlock
     }
 
     static func getNextBlock(at currentTime: Date = Date()) -> BlockTime? {

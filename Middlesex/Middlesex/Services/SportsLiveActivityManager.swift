@@ -19,7 +19,6 @@ class SportsLiveActivityManager: ObservableObject {
     @Published private(set) var activeClaims: [String: SportsReporterClaim] = [:]
 
     private var pushTokenTasks: [String: Task<Void, Never>] = [:]
-    private var clockRefreshTimers: [String: Timer] = [:]
     private let cloudService = SportsLiveCloudKitService.shared
 
     private init() {
@@ -35,12 +34,23 @@ class SportsLiveActivityManager: ObservableObject {
     }
 
     func follow(event: SportsEvent, userPreferences: UserPreferences) async throws {
+        print("🎯 Starting Live Activity for event: \(event.id)")
+        print("   Sport: \(event.sport.rawValue)")
+        print("   Opponent: \(event.opponent)")
+
         guard let sportType = SportsActivityAttributes.SportType(eventSport: event.sport) else {
             print("⚠️ Unsupported sport for Live Activity: \(event.sport.rawValue)")
             return
         }
 
-        guard ActivityAuthorizationInfo().areActivitiesEnabled else {
+        print("   ✅ Sport type supported: \(sportType.displayName)")
+
+        let authInfo = ActivityAuthorizationInfo()
+        print("   Live Activities enabled: \(authInfo.areActivitiesEnabled)")
+        print("   Live Activities authorization status: \(authInfo.areActivitiesEnabled ? "enabled" : "disabled")")
+
+        guard authInfo.areActivitiesEnabled else {
+            print("❌ Live Activities are disabled in Settings")
             throw NSError(domain: "SportsLiveActivityManager", code: 1, userInfo: [NSLocalizedDescriptionKey: "Live Activities are disabled in Settings."])
         }
 
@@ -77,17 +87,34 @@ class SportsLiveActivityManager: ObservableObject {
             reporterName: initialState.reporterName
         )
 
-        let staleDate = event.eventDate.addingTimeInterval(4 * 60 * 60)
+        // Set staleDate to 4 hours from now or 4 hours after game starts, whichever is later
+        let now = Date()
+        let gameEndEstimate = event.eventDate.addingTimeInterval(4 * 60 * 60)
+        let staleDate = max(now.addingTimeInterval(4 * 60 * 60), gameEndEstimate)
 
-        let activity = try Activity.request(
-            attributes: attributes,
-            content: .init(state: initialState, staleDate: staleDate),
-            pushType: .token
-        )
+        print("   📝 Creating Live Activity...")
+        print("   Attributes: \(attributes.eventName)")
+        print("   Initial state: \(initialState.status.displayName)")
+        print("   Stale date: \(staleDate)")
 
-        activeActivities[event.id] = activity
-        listenForPushTokens(activity, eventId: event.id, sport: sportType, userPreferences: userPreferences)
-        startClockRefreshTimer(for: event.id)
+        do {
+            let activity = try Activity.request(
+                attributes: attributes,
+                content: .init(state: initialState, staleDate: staleDate),
+                pushType: .token
+            )
+
+            print("   ✅ Live Activity created successfully!")
+            print("   Activity ID: \(activity.id)")
+            print("   Activity state: \(activity.activityState)")
+
+            activeActivities[event.id] = activity
+            listenForPushTokens(activity, eventId: event.id, sport: sportType, userPreferences: userPreferences)
+        } catch {
+            print("   ❌ Failed to create Live Activity: \(error)")
+            print("   Error details: \(error.localizedDescription)")
+            throw error
+        }
     }
 
     func stopFollowing(eventId: String, userPreferences: UserPreferences, dismissAfter: TimeInterval = 60) async {
@@ -96,8 +123,6 @@ class SportsLiveActivityManager: ObservableObject {
 
         pushTokenTasks[eventId]?.cancel()
         pushTokenTasks[eventId] = nil
-        clockRefreshTimers[eventId]?.invalidate()
-        clockRefreshTimers.removeValue(forKey: eventId)
 
         await activity.end(.init(state: activity.content.state, staleDate: nil), dismissalPolicy: .after(Date().addingTimeInterval(dismissAfter)))
 
@@ -172,8 +197,6 @@ class SportsLiveActivityManager: ObservableObject {
         do {
             try await cloudService.releaseReporter(eventId: eventId)
             activeClaims.removeValue(forKey: eventId)
-            clockRefreshTimers[eventId]?.invalidate()
-            clockRefreshTimers.removeValue(forKey: eventId)
 
             if let activity = activeActivities[eventId] {
                 var state = activity.content.state
@@ -191,7 +214,6 @@ class SportsLiveActivityManager: ObservableObject {
         for activity in Activity<SportsActivityAttributes>.activities {
             activeActivities[activity.attributes.eventId] = activity
             listenForPushTokens(activity, eventId: activity.attributes.eventId, sport: activity.attributes.sportType, userPreferences: UserPreferences.shared)
-            startClockRefreshTimer(for: activity.attributes.eventId)
         }
     }
 
@@ -231,35 +253,6 @@ class SportsLiveActivityManager: ObservableObject {
                 }
             }
         }
-    }
-
-    private func startClockRefreshTimer(for eventId: String) {
-        clockRefreshTimers[eventId]?.invalidate()
-
-        guard activeActivities[eventId] != nil else { return }
-
-        let timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
-            Task { [weak self] in
-                await self?.refreshClock(for: eventId)
-            }
-        }
-
-        clockRefreshTimers[eventId] = timer
-    }
-
-    private func refreshClock(for eventId: String) async {
-        guard let activity = activeActivities[eventId] else { return }
-
-        var state = activity.content.state
-
-        guard state.status == .live, let remaining = state.currentClockRemaining() else { return }
-
-        let now = Date()
-        state.clockRemaining = remaining
-        state.clockLastUpdated = now
-        state.updatedAt = now
-
-        await activity.update(.init(state: state, staleDate: activity.content.staleDate))
     }
 }
 

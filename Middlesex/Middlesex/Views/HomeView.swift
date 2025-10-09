@@ -15,6 +15,7 @@ struct HomeView: View {
     @State private var showingAdminCodeEntry = false
     @State private var showingAnnouncementComposer = false
     @State private var showingAdminDashboard = false
+    @State private var showingGuestClassesFlow = false
 
     var body: some View {
         NavigationView {
@@ -162,6 +163,20 @@ struct HomeView: View {
                                 .background(preferences.isAdmin ? Color.green : Color.gray)
                                 .cornerRadius(10)
                             }
+
+                            Button {
+                                showingGuestClassesFlow = true
+                            } label: {
+                                HStack {
+                                    Image(systemName: "person.badge.plus.fill")
+                                    Text("Guest Classes (Dev Only)")
+                                }
+                                .font(.caption)
+                                .foregroundColor(.white)
+                                .padding()
+                                .background(Color.teal)
+                                .cornerRadius(10)
+                            }
                         }
                         .padding(.horizontal)
                         .padding(.vertical, 12)
@@ -246,6 +261,9 @@ struct HomeView: View {
             }
             .sheet(isPresented: $showingAdminDashboard) {
                 AdminDashboardView()
+            }
+            .sheet(isPresented: $showingGuestClassesFlow) {
+                GuestClassesFlow()
             }
         }
     }

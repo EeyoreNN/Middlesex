@@ -891,7 +891,7 @@ struct ReporterConsoleView: View {
                                 TextField("Event description", text: $entry.text)
                                     .textInputAutocapitalization(.sentences)
                                     .onSubmit { scheduleAutoPublish() }
-                                    .onChange(of: entry.text) { _ in scheduleAutoPublish() }
+                                    .onChange(of: entry.text) { scheduleAutoPublish() }
 
                                 HStack {
                                     Text(entry.timestamp, style: .time)
@@ -1620,20 +1620,10 @@ struct ReporterConsoleView: View {
     private func scheduleAutoPublish(immediate: Bool = false) {
         guard didLoadInitialState else { return }
 
-        if immediate {
-            autoPublishTask?.cancel()
-            autoPublishTask = nil
-            publishUpdate(auto: true)
-            return
-        }
-
+        // Always publish immediately when data changes
         autoPublishTask?.cancel()
-        autoPublishTask = Task {
-            try? await Task.sleep(nanoseconds: 300_000_000)
-            await MainActor.run {
-                publishUpdate(auto: true)
-            }
-        }
+        autoPublishTask = nil
+        publishUpdate(auto: true)
     }
 
     private func startGameClock() {

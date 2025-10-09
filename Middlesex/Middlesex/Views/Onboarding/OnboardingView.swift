@@ -25,7 +25,7 @@ struct OnboardingView: View {
             VStack {
                 // Progress indicator
                 HStack(spacing: 8) {
-                    ForEach(0..<5) { index in
+                    ForEach(0..<4) { index in
                         Circle()
                             .fill(currentPage == index ? Color.white : Color.white.opacity(0.3))
                             .frame(width: 8, height: 8)
@@ -53,8 +53,8 @@ struct OnboardingView: View {
                     )
                     .tag(3)
 
-                    SimplifiedScheduleBuilder(onComplete: completeOnboarding)
-                        .tag(4)
+                    // Removed duplicate SimplifiedScheduleBuilder from TabView
+                    // Users access it through the sheet from page 3
                 }
                 .tabViewStyle(.page(indexDisplayMode: .never))
             }

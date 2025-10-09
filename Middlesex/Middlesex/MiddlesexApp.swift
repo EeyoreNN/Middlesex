@@ -21,6 +21,8 @@ struct MiddlesexApp: App {
         }
     }()
 
+    @Environment(\.scenePhase) private var scenePhase
+
     var body: some Scene {
         WindowGroup {
             ContentView()
@@ -32,10 +34,12 @@ struct MiddlesexApp: App {
                         liveActivityManager.checkAndStartActivityIfNeeded()
                     }
                 }
-                .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
-                    // Check and start Live Activity when app comes to foreground
-                    if #available(iOS 16.2, *) {
-                        liveActivityManager.checkAndStartActivityIfNeeded()
+                .onChange(of: scenePhase) { newPhase in
+                    // Re-check Live Activity when app becomes active
+                    if newPhase == .active {
+                        if #available(iOS 16.2, *) {
+                            liveActivityManager.checkAndStartActivityIfNeeded()
+                        }
                     }
                 }
         }

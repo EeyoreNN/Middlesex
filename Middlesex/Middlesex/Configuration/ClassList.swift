@@ -11,11 +11,22 @@ struct SchoolClass: Identifiable, Hashable, Codable {
     let id: String
     let name: String
     let department: ClassDepartment
+    let block: String?  // Which block this X block config applies to (A, B, C, D, E, F, G)
+    let xBlockDaysRed: [String]?  // Days this class uses X blocks in Red Week (for the specified block)
+    let xBlockDaysWhite: [String]? // Days this class uses X blocks in White Week (for the specified block)
 
-    init(id: String = UUID().uuidString, name: String, department: ClassDepartment) {
+    init(id: String = UUID().uuidString,
+         name: String,
+         department: ClassDepartment,
+         block: String? = nil,
+         xBlockDaysRed: [String]? = nil,
+         xBlockDaysWhite: [String]? = nil) {
         self.id = id
         self.name = name
         self.department = department
+        self.block = block
+        self.xBlockDaysRed = xBlockDaysRed
+        self.xBlockDaysWhite = xBlockDaysWhite
     }
 }
 
@@ -47,11 +58,29 @@ enum ClassDepartment: String, CaseIterable, Codable {
 
 // MARK: - Available Classes
 // Easy to add/modify - just add new entries to this array
+//
+// X Block Schedule Notes:
+// - If xBlockDaysRed and xBlockDaysWhite are nil, the class uses the standard schedule for its block
+// - To specify custom X block days for a specific block, set the 'block' parameter (e.g., block: "F")
+// - Days should match: "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"
+// - The 'block' parameter ensures X block config only applies when that class is in that specific block
+//
+// Example: Elements of Novels and Stories in F block only uses X blocks on Friday (Red) and Fri/Sat (White)
+//
+// Standard X Block Schedule by Block:
+// Red Week:    A: Mon/Thu, B: Wed/Fri, C: Tue/Thu, D: Mon/Sat, E: Mon/Thu, F: Wed/Fri, G: Tue/Sat
+// White Week:  A: Mon/Thu, B: Fri/Sat, C: Tue/Thu, D: Mon/Wed, E: Mon/Thu, F: Fri/Sat, G: Tue/Wed
 
 struct ClassList {
     static let availableClasses: [SchoolClass] = [
         // English
-        SchoolClass(name: "Elements of Novels and Stories", department: .english),
+        SchoolClass(
+            name: "Elements of Novels and Stories",
+            department: .english,
+            block: "F",  // This X block config only applies when this class is in F block
+            xBlockDaysRed: ["Friday"],        // Only Friday in Red Week
+            xBlockDaysWhite: ["Friday", "Saturday"]  // Friday and Saturday in White Week
+        ),
         SchoolClass(name: "American Literature", department: .english),
         SchoolClass(name: "British Literature", department: .english),
         SchoolClass(name: "Creative Writing", department: .english),
@@ -93,14 +122,14 @@ struct ClassList {
         SchoolClass(name: "Drama", department: .arts),
         SchoolClass(name: "Art 12", department: .arts),
 
-        // Music
-        SchoolClass(name: "Music: Foundations", department: .music),
-        SchoolClass(name: "Jazz Ensemble", department: .music),
-        SchoolClass(name: "Chorus", department: .music),
-        SchoolClass(name: "Orchestra", department: .music),
+        // Music - Never use X blocks
+        SchoolClass(name: "Music: Foundations", department: .music, xBlockDaysRed: [], xBlockDaysWhite: []),
+        SchoolClass(name: "Jazz Ensemble", department: .music, xBlockDaysRed: [], xBlockDaysWhite: []),
+        SchoolClass(name: "Chorus", department: .music, xBlockDaysRed: [], xBlockDaysWhite: []),
+        SchoolClass(name: "Orchestra", department: .music, xBlockDaysRed: [], xBlockDaysWhite: []),
 
-        // Wellness
-        SchoolClass(name: "Mindfulness", department: .wellness),
+        // Wellness - Mindfulness never uses X blocks
+        SchoolClass(name: "Mindfulness", department: .wellness, xBlockDaysRed: [], xBlockDaysWhite: []),
         SchoolClass(name: "Physical Education", department: .wellness),
 
         // Other

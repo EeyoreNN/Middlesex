@@ -28,6 +28,34 @@ class CloudKitManager: ObservableObject {
         // CloudKit container identifier matching entitlements
         container = CKContainer(identifier: "iCloud.com.nicholasnoon.Middlesex")
         publicDatabase = container.publicCloudDatabase
+
+        // Check iCloud account status
+        Task {
+            await checkAccountStatus()
+        }
+    }
+
+    // Check if user is signed into iCloud
+    private func checkAccountStatus() async {
+        do {
+            let status = try await container.accountStatus()
+            switch status {
+            case .available:
+                print("✅ iCloud account available")
+            case .noAccount:
+                print("⚠️ No iCloud account - User needs to sign in to iCloud in Settings")
+            case .restricted:
+                print("⚠️ iCloud account restricted")
+            case .couldNotDetermine:
+                print("⚠️ Could not determine iCloud account status")
+            case .temporarilyUnavailable:
+                print("⚠️ iCloud account temporarily unavailable")
+            @unknown default:
+                print("⚠️ Unknown iCloud account status")
+            }
+        } catch {
+            print("❌ Error checking iCloud account status: \(error)")
+        }
     }
 
     // MARK: - Menu Items

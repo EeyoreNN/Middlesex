@@ -28,6 +28,7 @@ struct TeacherList {
     static let availableTeachers: [Teacher] = [
         // English Department
         Teacher(name: "Ms. Smedley", department: .english, defaultRoom: "BAP Seminar Room"),
+        Teacher(name: "Ms. Munro", department: .english, defaultRoom: "200"),
         Teacher(name: "Mr. Smith", department: .english, defaultRoom: "101"),
         Teacher(name: "Ms. Johnson", department: .english, defaultRoom: "102"),
         Teacher(name: "Dr. Williams", department: .english, defaultRoom: "103"),
@@ -93,7 +94,7 @@ struct RoomList {
     static let availableRooms: [String] = [
         // Academic Buildings
         "101", "102", "103", "104", "105",
-        "201", "202", "203", "204", "205",
+        "200", "201", "202", "203", "204", "205",
         "301", "302", "303", "304", "305",
         "401", "402", "403", "404", "405",
         "501", "502", "503", "504", "505",

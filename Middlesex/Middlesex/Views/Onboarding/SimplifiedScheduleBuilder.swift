@@ -25,7 +25,7 @@ struct SimplifiedScheduleBuilder: View {
                 ProgressView(value: Double(currentStep), total: Double(blocks.count))
                     .tint(MiddlesexTheme.primaryRed)
                     .padding()
-                    .background(Color.white.opacity(0.2))
+                    .background(Color.clear)
 
                 if currentStep < blocks.count {
                     // Block selection step
@@ -135,6 +135,7 @@ struct BlockSelectionView: View {
 
                     TextField("Search classes", text: $searchText)
                         .textFieldStyle(.plain)
+                        .foregroundColor(.primary)
 
                     if !searchText.isEmpty {
                         Button {
@@ -146,11 +147,12 @@ struct BlockSelectionView: View {
                     }
                 }
                 .padding()
-                .background(MiddlesexTheme.cardBackground)
+                .background(Color(uiColor: .systemGray6))
                 .cornerRadius(10)
                 .padding(.horizontal)
             }
             .padding(.vertical, 20)
+            .background(Color.clear)
 
             // Department filter
             ScrollView(.horizontal, showsIndicators: false) {
@@ -317,7 +319,7 @@ struct TeacherRoomSelectionView: View {
                 ProgressView(value: Double(currentClassIndex), total: Double(sortedBlocks.count))
                     .tint(MiddlesexTheme.primaryRed)
                     .padding()
-                    .background(Color.white.opacity(0.2))
+                    .background(Color.clear)
 
                 TeacherRoomPicker(
                     block: block,

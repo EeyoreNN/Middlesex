@@ -130,6 +130,7 @@ struct ScheduleView: View {
 
         // Map block names (A, Ax, B, Bx, etc.) to period numbers
         let blockLetter = String(block.prefix(1))
+        let isXBlock = block.count > 1 && block.lowercased().hasSuffix("x")
 
         // Map A->1, B->2, C->3, D->4, E->5, F->6, G->7
         let blockToPeriod: [String: Int] = [
@@ -140,7 +141,48 @@ struct ScheduleView: View {
             return nil
         }
 
-        return preferences.getClassWithFallback(for: period, preferredWeekType: selectedWeekType)
+        let userClass = preferences.getClassWithFallback(for: period, preferredWeekType: selectedWeekType)
+
+        // If this is an X block, check if the class uses X blocks on this day
+        if isXBlock, let userClass = userClass {
+            let dayName = getCurrentDayName()
+
+            // Look up the SchoolClass from ClassList to get X block configuration
+            // Must match both name AND block (if block is specified)
+            if let schoolClass = ClassList.availableClasses.first(where: {
+                $0.name == userClass.className && ($0.block == nil || $0.block == blockLetter)
+            }) {
+                // Get the appropriate X block days based on week type
+                let xBlockDays = selectedWeekType == .red ? schoolClass.xBlockDaysRed : schoolClass.xBlockDaysWhite
+
+                // If X block days are defined, check if today is included
+                if let xBlockDays = xBlockDays {
+                    if !xBlockDays.contains(dayName) {
+                        // This class doesn't use X blocks on this day
+                        return nil
+                    }
+                }
+                // If xBlockDays is nil, use standard schedule (show all X blocks for this period)
+            }
+        }
+
+        return userClass
+    }
+
+    private func getCurrentDayName() -> String {
+        let calendar = Calendar.current
+        let weekday = calendar.component(.weekday, from: currentTime)
+
+        switch weekday {
+        case 1: return "Sunday"
+        case 2: return "Monday"
+        case 3: return "Tuesday"
+        case 4: return "Wednesday"
+        case 5: return "Thursday"
+        case 6: return "Friday"
+        case 7: return "Saturday"
+        default: return "Monday"
+        }
     }
 }
 

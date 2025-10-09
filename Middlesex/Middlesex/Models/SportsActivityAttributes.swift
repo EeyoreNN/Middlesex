@@ -183,10 +183,19 @@ extension SportsActivityAttributes.ContentState {
             return max(remaining, 0)
         }
 
+        // If game is live, calculate current remaining time
         if status == .live {
-            return max(remaining - elapsed, 0)
+            let calculatedRemaining = remaining - elapsed
+            return max(calculatedRemaining, 0)
         } else {
             return max(remaining, 0)
         }
+    }
+
+    func formattedClock(at date: Date = Date()) -> String? {
+        guard let remaining = currentClockRemaining(at: date) else { return nil }
+        let minutes = Int(remaining / 60)
+        let seconds = Int(remaining.truncatingRemainder(dividingBy: 60))
+        return String(format: "%d:%02d", minutes, seconds)
     }
 }

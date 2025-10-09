@@ -14,7 +14,7 @@ class LiveActivityManager: ObservableObject {
     static let shared = LiveActivityManager()
 
     @Published var currentActivity: Activity<ClassActivityAttributes>?
-    private var updateTimer: Timer?
+    private var endCheckTimer: Timer?
 
     private init() {
         // Resume existing activities when app launches
@@ -40,7 +40,7 @@ class LiveActivityManager: ObservableObject {
                 continue
             }
 
-            startUpdateTimer(endDate: endDate)
+            scheduleEndCheck(endDate: endDate)
             break // Only restore the first one
         }
     }
@@ -57,8 +57,16 @@ class LiveActivityManager: ObservableObject {
         startDate: Date,
         endDate: Date
     ) {
+        print("🎓 startClassActivity called for: \(className)")
+        print("   Block: \(block) | Time: \(startTime) - \(endTime)")
+        print("   Teacher: \(teacher) | Room: \(room)")
+        print("   Start: \(startDate) | End: \(endDate)")
+
         // Check if Live Activities are enabled
-        guard ActivityAuthorizationInfo().areActivitiesEnabled else {
+        let authInfo = ActivityAuthorizationInfo()
+        print("   Live Activities enabled: \(authInfo.areActivitiesEnabled)")
+
+        guard authInfo.areActivitiesEnabled else {
             print("❌ Live Activities are not enabled in Settings")
             return
         }
@@ -101,6 +109,7 @@ class LiveActivityManager: ObservableObject {
         )
 
         do {
+            // Set staleDate to end of class - TimelineView will handle local UI updates
             let activity = try Activity.request(
                 attributes: attributes,
                 content: .init(state: initialState, staleDate: endDate),
@@ -110,66 +119,43 @@ class LiveActivityManager: ObservableObject {
             currentActivity = activity
             print("✅ Live Activity started: \(activity.id)")
 
-            // Start timer to update every 30 seconds
-            startUpdateTimer(endDate: endDate)
+            // Schedule a check to end activity when class finishes
+            scheduleEndCheck(endDate: endDate)
 
         } catch {
             print("❌ Error starting Live Activity: \(error.localizedDescription)")
         }
     }
 
-    // Start timer to update Live Activity
-    private func startUpdateTimer(endDate: Date) {
-        updateTimer?.invalidate()
+    // Schedule a timer to check when class ends
+    private func scheduleEndCheck(endDate: Date) {
+        endCheckTimer?.invalidate()
 
-        // Update every second so the activity state remains fresh while relying on TimelineView for UI ticks
-        updateTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
-            Task {
-                await self?.updateActivity(endDate: endDate)
-            }
-        }
+        // Calculate time until class ends
+        let timeUntilEnd = endDate.timeIntervalSince(Date())
 
-        // Ensure we push an immediate refresh as soon as the timer starts
-        Task {
-            await updateActivity(endDate: endDate)
-        }
-    }
-
-    // Update Live Activity with current progress
-    private func updateActivity(endDate: Date) async {
-        guard let activity = currentActivity else { return }
-
-        let now = Date()
-        let state = activity.content.state
-        let startDate = state.startDate
-        let totalDuration = max(endDate.timeIntervalSince(startDate), 1)
-        let elapsed = now.timeIntervalSince(startDate)
-        let progress = min(max(elapsed / totalDuration, 0), 1)
-        let timeRemaining = max(endDate.timeIntervalSince(now), 0)
-
-        // If class is over, stop the activity
-        if timeRemaining <= 0 {
+        // Only schedule if class hasn't ended yet
+        guard timeUntilEnd > 0 else {
             stopCurrentActivity()
+            checkAndStartActivityIfNeeded()
             return
         }
 
-        let updatedState = ClassActivityAttributes.ContentState(
-            timeRemaining: timeRemaining,
-            progress: progress,
-            currentTime: now,
-            startDate: startDate,
-            endDate: endDate
-        )
+        // Schedule timer to fire shortly after class ends
+        endCheckTimer = Timer.scheduledTimer(withTimeInterval: timeUntilEnd + 1, repeats: false) { [weak self] _ in
+            guard let self = self else { return }
 
-        await activity.update(
-            .init(state: updatedState, staleDate: endDate)
-        )
+            Task { @MainActor in
+                self.stopCurrentActivity()
+                self.checkAndStartActivityIfNeeded()
+            }
+        }
     }
 
     // Stop the current Live Activity
     func stopCurrentActivity(dismissAfter: TimeInterval = 30) {
-        updateTimer?.invalidate()
-        updateTimer = nil
+        endCheckTimer?.invalidate()
+        endCheckTimer = nil
 
         guard let activity = currentActivity else { return }
 
@@ -192,13 +178,18 @@ class LiveActivityManager: ObservableObject {
 
     // Check if we should start a Live Activity based on current schedule
     func checkAndStartActivityIfNeeded() {
+        print("🔍 Checking if Live Activity should start...")
+
         guard let currentBlock = DailySchedule.getCurrentBlock() else {
             // No current block, stop any existing activity
+            print("   ℹ️ No current block - stopping any existing activity")
             if currentActivity != nil {
                 stopCurrentActivity()
             }
             return
         }
+
+        print("   📚 Current block: \(currentBlock.block) (\(currentBlock.startTime) - \(currentBlock.endTime))")
 
         // Get user's class for this block
         let blockLetter = String(currentBlock.block.prefix(1))
@@ -206,32 +197,46 @@ class LiveActivityManager: ObservableObject {
             "A": 1, "B": 2, "C": 3, "D": 4, "E": 5, "F": 6, "G": 7
         ]
 
-        guard let period = blockToPeriod[blockLetter] else { return }
+        guard let period = blockToPeriod[blockLetter] else {
+            print("   ⚠️ Could not map block letter '\(blockLetter)' to period")
+            return
+        }
+
+        print("   📝 Block letter: \(blockLetter) → Period: \(period)")
 
         let weekNumber = Calendar.current.component(.weekOfYear, from: Date())
         let weekType: ClassSchedule.WeekType = weekNumber % 2 == 0 ? .red : .white
         let preferences = UserPreferences.shared
 
+        print("   📅 Week type: \(weekType.rawValue)")
+
         guard let userClass = preferences.getClassWithFallback(for: period, preferredWeekType: weekType) else {
             // No class scheduled, stop any existing activity
+            print("   ℹ️ No class found for period \(period) (\(weekType.rawValue) week)")
             if currentActivity != nil {
                 stopCurrentActivity()
             }
             return
         }
 
+        print("   ✅ Found class: \(userClass.className)")
+
         // Don't start if already running for this class
         if let activity = currentActivity,
            activity.attributes.className == userClass.className,
            activity.attributes.block == currentBlock.block {
+            print("   ℹ️ Live Activity already running for this class")
             return
         }
 
         // Start new Live Activity
         guard let startDate = currentBlock.startDate(),
               let endDate = currentBlock.endDate() else {
+            print("   ❌ Could not get start/end dates for current block")
             return
         }
+
+        print("   🚀 Starting Live Activity for \(userClass.className)...")
 
         startClassActivity(
             className: userClass.className,
