@@ -34,12 +34,20 @@ struct MiddlesexApp: App {
                         liveActivityManager.checkAndStartActivityIfNeeded()
                     }
                 }
-                .onChange(of: scenePhase) { newPhase in
+                .onChange(of: scenePhase) { _, newPhase in
                     // Re-check Live Activity when app becomes active
                     if newPhase == .active {
                         if #available(iOS 16.2, *) {
+                            print("📱 App became active, checking for current class...")
                             liveActivityManager.checkAndStartActivityIfNeeded()
                         }
+                    }
+                }
+                .onReceive(NotificationCenter.default.publisher(for: UIApplication.significantTimeChangeNotification)) { _ in
+                    // Check when time changes significantly (like when class ends)
+                    if #available(iOS 16.2, *) {
+                        print("⏰ Significant time change detected, checking for current class...")
+                        liveActivityManager.checkAndStartActivityIfNeeded()
                     }
                 }
         }

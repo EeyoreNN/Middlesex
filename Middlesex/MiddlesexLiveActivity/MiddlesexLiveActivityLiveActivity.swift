@@ -18,81 +18,105 @@ struct MiddlesexLiveActivityLiveActivity: Widget {
             DynamicIsland {
                 // Expanded UI - shows when long-pressing
                 DynamicIslandExpandedRegion(.leading) {
-                    HStack(spacing: 8) {
-                        Circle()
-                            .fill(Color(hex: context.attributes.classColor) ?? .red)
-                            .frame(width: 8, height: 8)
+                    let accent = Color(hex: context.attributes.classColor) ?? .middlesexRed
 
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(context.attributes.block)
-                                .font(.caption2.bold())
-                                .foregroundColor(.white.opacity(0.7))
+                    HStack(alignment: .center, spacing: 12) {
+                        RoundedRectangle(cornerRadius: 2)
+                            .fill(accent)
+                            .frame(width: 4)
+                            .padding(.vertical, 6)
 
+                        VStack(alignment: .leading, spacing: 4) {
                             Text(context.attributes.className)
-                                .font(.subheadline.bold())
+                                .font(.callout.weight(.semibold))
                                 .foregroundColor(.white)
                                 .lineLimit(1)
+
+                            HStack(spacing: 8) {
+                                Text(context.attributes.block)
+                                    .font(.caption2.bold())
+                                    .foregroundColor(.white)
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 2)
+                                    .background(accent.opacity(0.25))
+                                    .clipShape(Capsule())
+
+                                Text(context.attributes.room)
+                                    .font(.caption2)
+                                    .foregroundColor(.white.opacity(0.75))
+
+                                Text("•")
+                                    .font(.caption2)
+                                    .foregroundColor(.white.opacity(0.4))
+
+                                Text(context.attributes.teacher)
+                                    .font(.caption2)
+                                    .foregroundColor(.white.opacity(0.75))
+                            }
+                            .lineLimit(1)
                         }
                     }
                     .padding(.leading, 16)
+                    .padding(.vertical, 10)
                 }
 
                 DynamicIslandExpandedRegion(.trailing) {
-                    VStack(alignment: .trailing, spacing: 2) {
+                    VStack(alignment: .trailing, spacing: 4) {
                         Text(context.state.endDate, style: .timer)
                             .font(.title3.bold().monospacedDigit())
                             .foregroundColor(.white)
 
                         Text("remaining")
                             .font(.caption2)
-                            .foregroundColor(.white.opacity(0.7))
+                            .foregroundColor(.white.opacity(0.65))
                     }
                     .padding(.trailing, 16)
+                    .padding(.vertical, 10)
                 }
 
                 DynamicIslandExpandedRegion(.bottom) {
-                    VStack(spacing: 12) {
-                        // Teacher and room
-                        HStack(spacing: 16) {
-                            Label(context.attributes.teacher, systemImage: "person.fill")
-                                .font(.caption)
-                                .foregroundColor(.white.opacity(0.9))
+                    let accent = Color(hex: context.attributes.classColor) ?? .middlesexRed
 
-                            Label(context.attributes.room, systemImage: "mappin.circle.fill")
-                                .font(.caption)
-                                .foregroundColor(.white.opacity(0.9))
-                        }
-
+                    VStack(spacing: 10) {
                         // Progress bar with system timer
                         ProgressView(timerInterval: context.state.startDate...context.state.endDate, countsDown: false) {
                             EmptyView()
                         }
                         .progressViewStyle(.linear)
-                        .tint(Color(hex: context.attributes.classColor) ?? .red)
-                        .frame(height: 6)
+                        .tint(accent)
+                        .frame(height: 3)
 
-                        // Times
+                        // Schedule details
                         HStack {
                             Text(context.attributes.startTime)
+                                .font(.caption2.monospacedDigit())
+                                .foregroundColor(.white.opacity(0.65))
+
+                            Spacer()
+
+                            Text(context.attributes.teacher)
                                 .font(.caption2)
-                                .foregroundColor(.white.opacity(0.6))
+                                .foregroundColor(.white.opacity(0.65))
 
                             Spacer()
 
                             Text(context.attributes.endTime)
-                                .font(.caption2)
-                                .foregroundColor(.white.opacity(0.6))
+                                .font(.caption2.monospacedDigit())
+                                .foregroundColor(.white.opacity(0.65))
                         }
                     }
-                    .padding(.horizontal, 12)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
                 }
 
             } compactLeading: {
                 // Compact leading - shows block letter
-                HStack(spacing: 4) {
+                let accent = Color(hex: context.attributes.classColor) ?? .middlesexRed
+
+                HStack(spacing: 6) {
                     Circle()
-                        .fill(Color(hex: context.attributes.classColor) ?? .red)
-                        .frame(width: 6, height: 6)
+                        .fill(accent)
+                        .frame(width: 8, height: 8)
 
                     Text(context.attributes.block)
                         .font(.caption.bold())
@@ -106,11 +130,13 @@ struct MiddlesexLiveActivityLiveActivity: Widget {
                     .multilineTextAlignment(.trailing)
             } minimal: {
                 // Minimal - when multiple Live Activities are active
+                let accent = Color(hex: context.attributes.classColor) ?? .middlesexRed
+
                 Circle()
-                    .fill(Color(hex: context.attributes.classColor) ?? .red)
+                    .fill(accent)
                     .frame(width: 12, height: 12)
             }
-            .keylineTint(Color(hex: context.attributes.classColor) ?? .red)
+            .keylineTint(Color(hex: context.attributes.classColor) ?? .middlesexRed)
         }
     }
 
@@ -143,61 +169,98 @@ struct LockScreenLiveActivityView: View {
     let context: ActivityViewContext<ClassActivityAttributes>
 
     var body: some View {
-        VStack(spacing: 0) {
-            HStack(spacing: 12) {
-                // Color indicator
-                Circle()
-                    .fill(Color(hex: context.attributes.classColor) ?? .red)
-                    .frame(width: 10, height: 10)
+        let accent = Color(hex: context.attributes.classColor) ?? .middlesexRed
 
-                // Class name
-                Text(context.attributes.className)
-                    .font(.headline.bold())
-                    .foregroundColor(.white)
+        VStack(spacing: 18) {
+            // Header - class information
+            HStack(alignment: .top, spacing: 16) {
+                HStack(spacing: 12) {
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(.white)
+                        .frame(width: 6, height: 44)
+
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(context.attributes.className)
+                            .font(.title3.weight(.semibold))
+                            .foregroundColor(.white)
+                            .lineLimit(1)
+
+                        HStack(spacing: 8) {
+                            Text(context.attributes.block)
+                                .font(.caption.bold())
+                                .foregroundColor(accent)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 3)
+                                .background(Color.white)
+                                .clipShape(Capsule())
+
+                            Text(context.attributes.teacher)
+                                .font(.caption)
+                                .foregroundColor(.white.opacity(0.85))
+
+                            Text("•")
+                                .font(.caption)
+                                .foregroundColor(.white.opacity(0.4))
+
+                            Text(context.attributes.room)
+                                .font(.caption)
+                                .foregroundColor(.white.opacity(0.85))
+                        }
+                        .lineLimit(1)
+                    }
+                }
 
                 Spacer()
 
-                // Time remaining - uses system timer
-                Text(context.state.endDate, style: .timer)
-                    .font(.subheadline.monospacedDigit())
-                    .foregroundColor(.white.opacity(0.9))
+                // Timer
+                VStack(alignment: .trailing, spacing: 4) {
+                    Text(context.state.endDate, style: .timer)
+                        .font(.title.bold().monospacedDigit())
+                        .foregroundColor(.white)
+
+                    Text("remaining")
+                        .font(.caption2)
+                        .foregroundColor(.white.opacity(0.7))
+                }
             }
-            .padding(.horizontal, 16)
-            .padding(.top, 14)
-            .padding(.bottom, 10)
 
-            // Teacher and room
-            HStack(spacing: 16) {
-                Label(context.attributes.teacher, systemImage: "person.fill")
-                    .font(.caption)
-                    .foregroundColor(.white.opacity(0.8))
-
-                Label(context.attributes.room, systemImage: "mappin.circle.fill")
-                    .font(.caption)
-                    .foregroundColor(.white.opacity(0.8))
-
-                Spacer()
-
-                // Block and times
-                Text("\(context.attributes.block) • \(context.attributes.startTime)-\(context.attributes.endTime)")
-                    .font(.caption)
-                    .foregroundColor(.white.opacity(0.7))
-            }
-            .padding(.horizontal, 16)
-            .padding(.bottom, 10)
-
-            // Progress bar - uses system timer
+            // Progress bar
             ProgressView(timerInterval: context.state.startDate...context.state.endDate, countsDown: false) {
                 EmptyView()
             }
             .progressViewStyle(.linear)
             .tint(.white)
-            .frame(height: 4)
+            .frame(height: 3)
+
+            // Footer times
+            HStack {
+                Text(context.attributes.startTime)
+                    .font(.caption2.monospacedDigit())
+                    .foregroundColor(.white.opacity(0.75))
+
+                Spacer()
+
+                Text(context.attributes.block)
+                    .font(.caption.bold())
+                    .foregroundColor(.white.opacity(0.85))
+
+                Spacer()
+
+                Text(context.attributes.endTime)
+                    .font(.caption2.monospacedDigit())
+                    .foregroundColor(.white.opacity(0.75))
+            }
         }
-        .background(Color(hex: context.attributes.classColor)?.opacity(0.95) ?? Color.red.opacity(0.95))
-        .activityBackgroundTint(Color(hex: context.attributes.classColor)?.opacity(0.95) ?? Color.red.opacity(0.95))
+        .padding(.horizontal, 20)
+        .padding(.vertical, 22)
+        .background(accent)
+        .activityBackgroundTint(accent)
         .activitySystemActionForegroundColor(.white)
     }
+}
+
+private extension Color {
+    static let middlesexRed = Color(red: 200/255, green: 16/255, blue: 46/255)
 }
 
 @available(iOS 16.2, *)

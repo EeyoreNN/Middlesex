@@ -10,6 +10,7 @@ import ActivityKit
 import Combine
 
 @available(iOS 16.2, *)
+@MainActor
 class LiveActivityManager: ObservableObject {
     static let shared = LiveActivityManager()
 
@@ -26,22 +27,33 @@ class LiveActivityManager: ObservableObject {
     // Restore any existing Live Activity
     private func restoreExistingActivity() async {
         for activity in Activity<ClassActivityAttributes>.activities {
-            currentActivity = activity
-            print("📱 Restored existing Live Activity: \(activity.id)")
-
             let state = activity.content.state
             let endDate = state.endDate
+            let now = Date()
 
-            // Skip if activity already expired
-            guard endDate > Date() else {
-                await MainActor.run {
-                    currentActivity = nil
-                }
+            print("📱 Found existing Live Activity: \(activity.id)")
+            print("   End date: \(endDate)")
+            print("   Current time: \(now)")
+
+            // If activity already expired, end it and check for current class
+            if endDate <= now {
+                print("   ⚠️ Activity has expired, ending it...")
+                await activity.end(nil, dismissalPolicy: .immediate)
                 continue
             }
 
+            // Activity is still valid
+            currentActivity = activity
+            print("   ✅ Restored active Live Activity")
             scheduleEndCheck(endDate: endDate)
             break // Only restore the first one
+        }
+
+        // After checking existing activities, see if we need to start a new one
+        if currentActivity == nil {
+            await MainActor.run {
+                checkAndStartActivityIfNeeded()
+            }
         }
     }
 
@@ -109,7 +121,7 @@ class LiveActivityManager: ObservableObject {
         )
 
         do {
-            // Set staleDate to end of class - TimelineView will handle local UI updates
+            // Set staleDate to end of class
             let activity = try Activity.request(
                 attributes: attributes,
                 content: .init(state: initialState, staleDate: endDate),
@@ -118,9 +130,23 @@ class LiveActivityManager: ObservableObject {
 
             currentActivity = activity
             print("✅ Live Activity started: \(activity.id)")
+            print("   Will end at: \(endDate)")
 
-            // Schedule a check to end activity when class finishes
+            // Schedule check to end and start next class
             scheduleEndCheck(endDate: endDate)
+
+            // Also schedule a check shortly after class ends to start next class
+            let nextCheckInterval = endDate.timeIntervalSince(Date()) + 5
+            if nextCheckInterval > 0 {
+                Timer.scheduledTimer(withTimeInterval: nextCheckInterval, repeats: false) { [weak self] _ in
+                    guard let self = self else { return }
+                    Task { @MainActor [weak self] in
+                        guard let self = self else { return }
+                        print("⏰ Class ended, checking for next class...")
+                        self.checkAndStartActivityIfNeeded()
+                    }
+                }
+            }
 
         } catch {
             print("❌ Error starting Live Activity: \(error.localizedDescription)")
@@ -149,6 +175,23 @@ class LiveActivityManager: ObservableObject {
                 self.stopCurrentActivity()
                 self.checkAndStartActivityIfNeeded()
             }
+        }
+    }
+
+    // Get color for non-class blocks
+    private func getColorForBlock(_ blockName: String) -> String {
+        switch blockName {
+        case "Lunch": return "#FF9500"  // Orange
+        case "Break": return "#5AC8FA"  // Blue
+        case "Meet": return "#AF52DE"   // Purple
+        case "Chapel": return "#FFD60A" // Yellow
+        case "Senate": return "#BF5AF2" // Purple
+        case "Athlet": return "#32D74B" // Green
+        case "CommT": return "#0A84FF"  // Blue
+        case "Announ": return "#FF453A" // Red
+        case "ChChor": return "#FFD60A" // Yellow
+        case "FacMtg": return "#8E8E93"  // Gray
+        default: return "#C8102E"       // Middlesex Red
         }
     }
 
@@ -196,6 +239,42 @@ class LiveActivityManager: ObservableObject {
         let blockToPeriod: [String: Int] = [
             "A": 1, "B": 2, "C": 3, "D": 4, "E": 5, "F": 6, "G": 7
         ]
+
+        // Check if this is a non-class period (Meet, Lunch, Break, etc.)
+        let nonClassBlocks = ["Meet", "Lunch", "Break", "Chapel", "Senate", "Athlet", "CommT", "Announ", "ChChor", "FacMtg"]
+
+        if nonClassBlocks.contains(currentBlock.block) {
+            print("   📍 Non-class period: \(currentBlock.block)")
+
+            // Don't start if already running for this period
+            if let activity = currentActivity,
+               activity.attributes.className == currentBlock.block {
+                print("   ℹ️ Live Activity already running for this period")
+                return
+            }
+
+            // Start Live Activity for this non-class period
+            guard let startDate = currentBlock.startDate(),
+                  let endDate = currentBlock.endDate() else {
+                print("   ❌ Could not get start/end dates for current block")
+                return
+            }
+
+            print("   🚀 Starting Live Activity for \(currentBlock.block)...")
+
+            startClassActivity(
+                className: currentBlock.block,
+                teacher: "",
+                room: "",
+                block: currentBlock.block,
+                startTime: currentBlock.startTime,
+                endTime: currentBlock.endTime,
+                classColor: getColorForBlock(currentBlock.block),
+                startDate: startDate,
+                endDate: endDate
+            )
+            return
+        }
 
         guard let period = blockToPeriod[blockLetter] else {
             print("   ⚠️ Could not map block letter '\(blockLetter)' to period")
