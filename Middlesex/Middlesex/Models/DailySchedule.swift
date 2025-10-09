@@ -38,13 +38,27 @@ struct BlockTime: Identifiable {
     let endTime: String
 
     // Parse time string like "8:00" or "1:20" to Date
+    // Note: Times after 12:55 use 12-hour format and are PM (e.g., "1:20" = 1:20 PM, "2:05" = 2:05 PM)
     func parseTime(_ timeString: String, on date: Date = Date()) -> Date? {
         let calendar = Calendar.current
         let components = timeString.split(separator: ":")
         guard components.count == 2,
-              let hour = Int(components[0]),
+              var hour = Int(components[0]),
               let minute = Int(components[1]) else {
             return nil
+        }
+
+        // Convert 12-hour PM times to 24-hour format
+        // Times from 1-11 with minutes >= 0 after noon are PM
+        // If hour is 1-11 and we're clearly in afternoon (past noon), add 12
+        if hour >= 1 && hour <= 11 {
+            // Check if this looks like an afternoon time based on context
+            // Times like "1:20", "2:05", "2:45", "3:10", "3:30" are PM
+            // We know it's PM if the previous time would have been past noon
+            // For simplicity: if hour is 1-3 and minutes suggest afternoon schedule, it's PM
+            if hour <= 3 {
+                hour += 12  // Convert to 24-hour PM time
+            }
         }
 
         // Get start of day in local timezone
