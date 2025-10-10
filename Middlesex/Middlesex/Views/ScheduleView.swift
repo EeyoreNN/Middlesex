@@ -119,12 +119,31 @@ struct ScheduleView: View {
         specialSchedule = await cloudKitManager.fetchSpecialSchedule(for: Date())
     }
 
+    private func userParticipatesInBlock(_ blockName: String) -> Bool {
+        let extracurricular = preferences.extracurricularInfo
+
+        switch blockName {
+        case "ChChor":
+            return extracurricular.isInChapelChorus
+        case "Senate":
+            return extracurricular.senatePosition != ExtracurricularInfo.SenatePosition.none
+        default:
+            return true
+        }
+    }
+
     private func getUserClassForBlock(_ block: String) -> UserClass? {
         let nonAcademicBlocks: Set<String> = [
             "Lunch", "Chapel", "Athlet", "CommT", "FacMtg", "Announ", "Break", "Senate", "Meet", "ChChor"
         ]
 
         if nonAcademicBlocks.contains(block) {
+            // Check if user participates in this activity
+            if !userParticipatesInBlock(block) {
+                // User doesn't participate - show as free period
+                return nil
+            }
+            // User participates - return nil to show special block display
             return nil
         }
 
@@ -191,6 +210,7 @@ struct ScheduleBlockCard: View {
     let userClass: UserClass?
     let weekType: ClassSchedule.WeekType
     @Environment(\.colorScheme) private var colorScheme
+    @StateObject private var preferences = UserPreferences.shared
 
     var body: some View {
         let special = specialBlockInfo(blockTime.block)
@@ -313,6 +333,9 @@ private extension ScheduleBlockCard {
     }
 
     func specialBlockInfo(_ block: String) -> (icon: String, title: String, tint: Color)? {
+        // Check if user participates in this block
+        let extracurricular = preferences.extracurricularInfo
+
         switch block {
         case "Lunch":
             return ("fork.knife", "Lunch", MiddlesexTheme.primaryRed)
@@ -329,11 +352,13 @@ private extension ScheduleBlockCard {
         case "Break":
             return ("cup.and.saucer", "Break", MiddlesexTheme.primaryRed)
         case "Senate":
-            return ("building.columns", "Senate", MiddlesexTheme.primaryRed)
+            // Only show if user is in Senate
+            return extracurricular.senatePosition != ExtracurricularInfo.SenatePosition.none ? ("building.columns", "Senate", MiddlesexTheme.primaryRed) : nil
         case "Meet":
             return ("calendar", "Meetings", MiddlesexTheme.primaryRed)
         case "ChChor":
-            return ("music.note", "Chapel Chorus", MiddlesexTheme.primaryRed)
+            // Only show if user is in Chapel Chorus
+            return extracurricular.isInChapelChorus ? ("music.note", "Chapel Chorus", MiddlesexTheme.primaryRed) : nil
         default:
             return nil
         }

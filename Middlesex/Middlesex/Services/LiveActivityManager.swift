@@ -16,6 +16,7 @@ class LiveActivityManager: ObservableObject {
 
     @Published var currentActivity: Activity<ClassActivityAttributes>?
     private var endCheckTimer: Timer?
+    private var specialSchedule: SpecialSchedule?
 
     private init() {
         // Resume existing activities when app launches
@@ -26,12 +27,25 @@ class LiveActivityManager: ObservableObject {
 
     // Restore any existing Live Activity
     private func restoreExistingActivity() async {
+        // Fetch special schedule FIRST before validating existing activities
+        let cloudKitManager = CloudKitManager.shared
+        specialSchedule = await cloudKitManager.fetchSpecialSchedule(for: Date())
+
+        if let special = specialSchedule {
+            print("📅 Loaded special schedule on launch: \(special.title)")
+        }
+
+        // Get current block using special schedule
+        let todaySchedule = DailySchedule.getSchedule(for: Date(), specialSchedule: specialSchedule)
+        let currentBlock = todaySchedule.first { $0.isHappeningNow(at: Date()) }
+
         for activity in Activity<ClassActivityAttributes>.activities {
             let state = activity.content.state
             let endDate = state.endDate
             let now = Date()
 
             print("📱 Found existing Live Activity: \(activity.id)")
+            print("   Showing: \(activity.attributes.className) (\(activity.attributes.block))")
             print("   End date: \(endDate)")
             print("   Current time: \(now)")
 
@@ -42,9 +56,34 @@ class LiveActivityManager: ObservableObject {
                 continue
             }
 
-            // Activity is still valid
+            // Check if this Live Activity is showing the correct block
+            if let currentBlock = currentBlock {
+                print("   📚 Actual current block: \(currentBlock.block)")
+
+                if activity.attributes.block != currentBlock.block {
+                    print("   ⚠️ Live Activity showing wrong block!")
+                    print("   Expected: \(currentBlock.block), Showing: \(activity.attributes.block)")
+                    print("   🔄 Ending incorrect activity and starting correct one...")
+
+                    // Stop the incorrect activity immediately
+                    await activity.end(nil, dismissalPolicy: .immediate)
+
+                    await MainActor.run {
+                        currentActivity = nil
+                    }
+
+                    // Start correct Live Activity with proper time remaining
+                    await MainActor.run {
+                        print("   🚀 Starting correct activity for block: \(currentBlock.block)")
+                        startNewActivityForBlock(currentBlock)
+                    }
+                    return
+                }
+            }
+
+            // Activity is still valid and correct
             currentActivity = activity
-            print("   ✅ Restored active Live Activity")
+            print("   ✅ Restored active Live Activity (correct block)")
             scheduleEndCheck(endDate: endDate)
             break // Only restore the first one
         }
@@ -195,6 +234,24 @@ class LiveActivityManager: ObservableObject {
         }
     }
 
+    // Check if user participates in this non-class block
+    private func userParticipatesInBlock(_ blockName: String) -> Bool {
+        let preferences = UserPreferences.shared
+        let extracurricular = preferences.extracurricularInfo
+
+        switch blockName {
+        case "ChChor":
+            // Only show Chapel Chorus if user is in it
+            return extracurricular.isInChapelChorus
+        case "Senate":
+            // Only show Senate if user has a position
+            return extracurricular.senatePosition != ExtracurricularInfo.SenatePosition.none
+        default:
+            // All other blocks (Chapel, Lunch, Athlet, etc.) everyone attends
+            return true
+        }
+    }
+
     // Stop the current Live Activity
     func stopCurrentActivity(dismissAfter: TimeInterval = 30) {
         endCheckTimer?.invalidate()
@@ -219,9 +276,58 @@ class LiveActivityManager: ObservableObject {
         }
     }
 
+    // Stop the current Live Activity (async version that waits for completion)
+    func stopCurrentActivityAsync(dismissAfter: TimeInterval = 30) async {
+        endCheckTimer?.invalidate()
+        endCheckTimer = nil
+
+        guard let activity = currentActivity else { return }
+
+        // Keep it on Lock Screen for specified time after ending
+        let dismissalDate = Date().addingTimeInterval(dismissAfter)
+
+        await activity.end(
+            .init(state: activity.content.state, staleDate: nil),
+            dismissalPolicy: .after(dismissalDate)
+        )
+
+        await MainActor.run {
+            currentActivity = nil
+        }
+
+        print("🛑 Live Activity stopped (will dismiss after \(dismissAfter)s)")
+    }
+
     // Check if we should start a Live Activity based on current schedule
     func checkAndStartActivityIfNeeded() {
         print("🔍 Checking if Live Activity should start...")
+
+        // Fetch special schedule first, then check
+        Task {
+            await fetchSpecialScheduleAndCheck()
+        }
+    }
+
+    private func fetchSpecialScheduleAndCheck() async {
+        // Fetch special schedule for today FIRST
+        let cloudKitManager = CloudKitManager.shared
+        specialSchedule = await cloudKitManager.fetchSpecialSchedule(for: Date())
+
+        if let special = specialSchedule {
+            print("   📅 Using special schedule: \(special.title)")
+        } else {
+            print("   📅 Using regular schedule")
+        }
+
+        await MainActor.run {
+            performActivityCheck()
+        }
+    }
+
+    private func performActivityCheck() {
+        // Get current block using special schedule if available
+        let todaySchedule = DailySchedule.getSchedule(for: Date(), specialSchedule: specialSchedule)
+        let currentBlock = todaySchedule.first { $0.isHappeningNow(at: Date()) }
 
         // First, validate existing Live Activity if one exists
         if let existingActivity = currentActivity {
@@ -233,7 +339,7 @@ class LiveActivityManager: ObservableObject {
             print("      Class: \(existingClassName)")
 
             // Check if it's still correct
-            guard let currentBlock = DailySchedule.getCurrentBlock() else {
+            guard let currentBlock = currentBlock else {
                 print("   ⚠️ No current block - stopping existing activity")
                 stopCurrentActivity()
                 return
@@ -243,15 +349,24 @@ class LiveActivityManager: ObservableObject {
             if existingBlock != currentBlock.block {
                 print("   🔄 Block changed from \(existingBlock) to \(currentBlock.block)")
                 print("   Stopping old activity and starting new one...")
-                stopCurrentActivity(dismissAfter: 0)
-                // Continue to start new activity below
+
+                // Stop old activity and start new one asynchronously
+                Task {
+                    await stopCurrentActivityAsync(dismissAfter: 0)
+
+                    // Now start the correct activity with proper time remaining
+                    await MainActor.run {
+                        startNewActivityForBlock(currentBlock)
+                    }
+                }
+                return
             } else {
                 print("   ✅ Existing Live Activity is correct for current block")
                 return
             }
         }
 
-        guard let currentBlock = DailySchedule.getCurrentBlock() else {
+        guard let currentBlock = currentBlock else {
             // No current block, stop any existing activity
             print("   ℹ️ No current block - stopping any existing activity")
             if currentActivity != nil {
@@ -261,6 +376,12 @@ class LiveActivityManager: ObservableObject {
         }
 
         print("   📚 Current block: \(currentBlock.block) (\(currentBlock.startTime) - \(currentBlock.endTime))")
+
+        // Start new activity for this block
+        startNewActivityForBlock(currentBlock)
+    }
+
+    private func startNewActivityForBlock(_ currentBlock: BlockTime) {
 
         // Get user's class for this block
         let blockLetter = String(currentBlock.block.prefix(1))
@@ -273,6 +394,12 @@ class LiveActivityManager: ObservableObject {
 
         if nonClassBlocks.contains(currentBlock.block) {
             print("   📍 Non-class period: \(currentBlock.block)")
+
+            // Check if user participates in this activity
+            if !userParticipatesInBlock(currentBlock.block) {
+                print("   ℹ️ User does not participate in \(currentBlock.block) - treating as free period")
+                return
+            }
 
             // Don't start if already running for this period
             if let activity = currentActivity,

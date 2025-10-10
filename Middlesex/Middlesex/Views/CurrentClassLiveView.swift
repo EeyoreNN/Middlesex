@@ -10,14 +10,13 @@ import Combine
 
 struct CurrentClassLiveView: View {
     @StateObject private var preferences = UserPreferences.shared
-    @StateObject private var cloudKitManager = CloudKitManager.shared
     @State private var currentTime = Date()
     @State private var currentBlock: BlockTime?
     @State private var nextBlock: BlockTime?
     @State private var userClass: UserClass?
     @State private var specialSchedule: SpecialSchedule?
 
-    let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
+    private let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
     var body: some View {
         Group {
@@ -51,8 +50,22 @@ struct CurrentClassLiveView: View {
         }
         .task {
             // Fetch special schedule for today
+            let cloudKitManager = CloudKitManager.shared
             specialSchedule = await cloudKitManager.fetchSpecialSchedule(for: Date())
             updateCurrentClass()
+        }
+    }
+
+    private func userParticipatesInBlock(_ blockName: String) -> Bool {
+        let extracurricular = preferences.extracurricularInfo
+
+        switch blockName {
+        case "ChChor":
+            return extracurricular.isInChapelChorus
+        case "Senate":
+            return extracurricular.senatePosition != ExtracurricularInfo.SenatePosition.none
+        default:
+            return true
         }
     }
 
@@ -72,7 +85,14 @@ struct CurrentClassLiveView: View {
             ]
 
             if nonClassBlocks.contains(block.block) {
-                // For non-class blocks, don't show a user class
+                // Check if user participates in this block
+                if !userParticipatesInBlock(block.block) {
+                    // User doesn't participate - don't show currentBlock at all
+                    currentBlock = nil
+                    userClass = nil
+                    return
+                }
+                // For non-class blocks user participates in, don't show a user class
                 userClass = nil
                 return
             }
@@ -275,6 +295,7 @@ struct UpNextCard: View {
 struct NonClassBlockCard: View {
     let block: BlockTime
     let currentTime: Date
+    @StateObject private var preferences = UserPreferences.shared
 
     var progress: Double {
         block.progressPercentage(at: currentTime)
@@ -293,6 +314,8 @@ struct NonClassBlockCard: View {
     }
 
     private func specialBlockInfo(_ block: String) -> (icon: String, title: String, tint: Color)? {
+        let extracurricular = preferences.extracurricularInfo
+
         switch block {
         case "Lunch":
             return ("fork.knife", "Lunch", Color.orange)
@@ -309,11 +332,13 @@ struct NonClassBlockCard: View {
         case "Break":
             return ("cup.and.saucer", "Break", Color.cyan)
         case "Senate":
-            return ("building.columns", "Senate", Color.purple)
+            // Only show if user is in Senate
+            return extracurricular.senatePosition != ExtracurricularInfo.SenatePosition.none ? ("building.columns", "Senate", Color.purple) : nil
         case "Meet":
             return ("calendar", "Meetings", Color.purple)
         case "ChChor":
-            return ("music.note", "Chapel Chorus", Color.yellow)
+            // Only show if user is in Chapel Chorus
+            return extracurricular.isInChapelChorus ? ("music.note", "Chapel Chorus", Color.yellow) : nil
         default:
             return nil
         }
