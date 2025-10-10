@@ -10,21 +10,32 @@ import Combine
 
 struct CurrentClassLiveView: View {
     @StateObject private var preferences = UserPreferences.shared
+    @StateObject private var cloudKitManager = CloudKitManager.shared
     @State private var currentTime = Date()
     @State private var currentBlock: BlockTime?
     @State private var nextBlock: BlockTime?
     @State private var userClass: UserClass?
+    @State private var specialSchedule: SpecialSchedule?
 
     let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
     var body: some View {
         Group {
-            if let block = currentBlock, let cls = userClass {
-                LiveActivityCard(
-                    block: block,
-                    userClass: cls,
-                    currentTime: currentTime
-                )
+            if let block = currentBlock {
+                if let cls = userClass {
+                    // Show class with user's schedule
+                    LiveActivityCard(
+                        block: block,
+                        userClass: cls,
+                        currentTime: currentTime
+                    )
+                } else {
+                    // Show non-class block (Lunch, Announ, etc.)
+                    NonClassBlockCard(
+                        block: block,
+                        currentTime: currentTime
+                    )
+                }
             } else if let next = nextBlock {
                 UpNextCard(block: next)
             } else {
@@ -38,13 +49,34 @@ struct CurrentClassLiveView: View {
             currentTime = time
             updateCurrentClass()
         }
+        .task {
+            // Fetch special schedule for today
+            specialSchedule = await cloudKitManager.fetchSpecialSchedule(for: Date())
+            updateCurrentClass()
+        }
     }
 
     private func updateCurrentClass() {
-        currentBlock = DailySchedule.getCurrentBlock(at: currentTime)
-        nextBlock = DailySchedule.getNextBlock(at: currentTime)
+        // Use special schedule if available
+        let todaySchedule = DailySchedule.getSchedule(for: currentTime, specialSchedule: specialSchedule)
+        currentBlock = todaySchedule.first { $0.isHappeningNow(at: currentTime) }
+        nextBlock = todaySchedule.first { block in
+            guard let start = block.startDate(on: currentTime) else { return false }
+            return start > currentTime
+        }
 
         if let block = currentBlock {
+            // Check if this is a non-class block
+            let nonClassBlocks: Set<String> = [
+                "Lunch", "Chapel", "Athlet", "CommT", "FacMtg", "Announ", "Break", "Senate", "Meet", "ChChor"
+            ]
+
+            if nonClassBlocks.contains(block.block) {
+                // For non-class blocks, don't show a user class
+                userClass = nil
+                return
+            }
+
             let blockLetter = String(block.block.prefix(1))
             let isXBlock = block.block.count > 1 && block.block.lowercased().hasSuffix("x")
             let blockToPeriod: [String: Int] = [
@@ -237,6 +269,116 @@ struct UpNextCard: View {
         .background(MiddlesexTheme.cardBackground)
         .cornerRadius(16)
         .shadow(color: Color.black.opacity(0.08), radius: 4, x: 0, y: 2)
+    }
+}
+
+struct NonClassBlockCard: View {
+    let block: BlockTime
+    let currentTime: Date
+
+    var progress: Double {
+        block.progressPercentage(at: currentTime)
+    }
+
+    var timeRemainingText: String {
+        let remaining = block.timeRemaining(at: currentTime)
+        let minutes = Int(remaining / 60)
+        let seconds = Int(remaining.truncatingRemainder(dividingBy: 60))
+
+        if minutes > 0 {
+            return "\(minutes)m \(seconds)s"
+        } else {
+            return "\(seconds)s"
+        }
+    }
+
+    private func specialBlockInfo(_ block: String) -> (icon: String, title: String, tint: Color)? {
+        switch block {
+        case "Lunch":
+            return ("fork.knife", "Lunch", Color.orange)
+        case "Chapel":
+            return ("building.columns", "Chapel", MiddlesexTheme.primaryRed)
+        case "Athlet":
+            return ("figure.run", "Athletics", Color.green)
+        case "CommT":
+            return ("person.3", "Community Time", Color.blue)
+        case "FacMtg":
+            return ("person.2", "Faculty Meeting", Color.gray)
+        case "Announ":
+            return ("megaphone", "Announcements", MiddlesexTheme.primaryRed)
+        case "Break":
+            return ("cup.and.saucer", "Break", Color.cyan)
+        case "Senate":
+            return ("building.columns", "Senate", Color.purple)
+        case "Meet":
+            return ("calendar", "Meetings", Color.purple)
+        case "ChChor":
+            return ("music.note", "Chapel Chorus", Color.yellow)
+        default:
+            return nil
+        }
+    }
+
+    var body: some View {
+        let info = specialBlockInfo(block.block)
+
+        VStack(spacing: 0) {
+            HStack(spacing: 16) {
+                // Icon
+                if let info = info {
+                    Image(systemName: info.icon)
+                        .font(.title3)
+                        .foregroundColor(.white)
+                        .frame(width: 8)
+                }
+
+                // Block name
+                Text(info?.title ?? block.block)
+                    .font(.headline.bold())
+                    .foregroundColor(.white)
+
+                Spacer()
+
+                // Time remaining
+                Text(timeRemainingText)
+                    .font(.subheadline.monospacedDigit())
+                    .foregroundColor(.white.opacity(0.9))
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 16)
+            .padding(.bottom, 12)
+
+            // Times
+            HStack(spacing: 16) {
+                Text("\(block.startTime) - \(block.endTime)")
+                    .font(.caption)
+                    .foregroundColor(.white.opacity(0.7))
+
+                Spacer()
+            }
+            .padding(.horizontal, 20)
+            .padding(.bottom, 12)
+
+            // Progress bar
+            GeometryReader { geometry in
+                ZStack(alignment: .leading) {
+                    // Background
+                    Rectangle()
+                        .fill(Color.white.opacity(0.2))
+
+                    // Progress
+                    Rectangle()
+                        .fill(Color.white)
+                        .frame(width: geometry.size.width * progress)
+                }
+            }
+            .frame(height: 4)
+        }
+        .background(
+            info?.tint.opacity(0.95) ?? MiddlesexTheme.primaryRed
+        )
+        .cornerRadius(16)
+        .shadow(color: Color.black.opacity(0.15), radius: 8, x: 0, y: 4)
     }
 }
 

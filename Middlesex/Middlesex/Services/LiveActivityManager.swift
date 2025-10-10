@@ -223,6 +223,34 @@ class LiveActivityManager: ObservableObject {
     func checkAndStartActivityIfNeeded() {
         print("🔍 Checking if Live Activity should start...")
 
+        // First, validate existing Live Activity if one exists
+        if let existingActivity = currentActivity {
+            let existingBlock = existingActivity.attributes.block
+            let existingClassName = existingActivity.attributes.className
+
+            print("   📱 Existing Live Activity found:")
+            print("      Block: \(existingBlock)")
+            print("      Class: \(existingClassName)")
+
+            // Check if it's still correct
+            guard let currentBlock = DailySchedule.getCurrentBlock() else {
+                print("   ⚠️ No current block - stopping existing activity")
+                stopCurrentActivity()
+                return
+            }
+
+            // If the block changed, update the Live Activity
+            if existingBlock != currentBlock.block {
+                print("   🔄 Block changed from \(existingBlock) to \(currentBlock.block)")
+                print("   Stopping old activity and starting new one...")
+                stopCurrentActivity(dismissAfter: 0)
+                // Continue to start new activity below
+            } else {
+                print("   ✅ Existing Live Activity is correct for current block")
+                return
+            }
+        }
+
         guard let currentBlock = DailySchedule.getCurrentBlock() else {
             // No current block, stop any existing activity
             print("   ℹ️ No current block - stopping any existing activity")
