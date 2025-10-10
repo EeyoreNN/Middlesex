@@ -44,8 +44,16 @@ class UserPreferences: ObservableObject {
         }
     }
 
+    // Cached special schedules (stored as JSON)
+    @Published var cachedSpecialSchedules: [Date: SpecialSchedule] = [:] {
+        didSet {
+            saveCachedSpecialSchedules()
+        }
+    }
+
     private init() {
         loadSchedules()
+        loadCachedSpecialSchedules()
     }
 
     private func saveSchedule(_ schedule: [Int: UserClass], key: String) {
@@ -63,6 +71,55 @@ class UserPreferences: ObservableObject {
         if let whiteData = UserDefaults.standard.data(forKey: "whiteWeekSchedule"),
            let decoded = try? JSONDecoder().decode([Int: UserClass].self, from: whiteData) {
             whiteWeekSchedule = decoded
+        }
+    }
+
+    private func saveCachedSpecialSchedules() {
+        // Convert Date keys to String for JSON encoding
+        let stringKeyDict = Dictionary(uniqueKeysWithValues: cachedSpecialSchedules.map { (key, value) in
+            (key.timeIntervalSince1970.description, value)
+        })
+
+        if let encoded = try? JSONEncoder().encode(stringKeyDict) {
+            UserDefaults.standard.set(encoded, forKey: "cachedSpecialSchedules")
+        }
+    }
+
+    private func loadCachedSpecialSchedules() {
+        if let data = UserDefaults.standard.data(forKey: "cachedSpecialSchedules"),
+           let stringKeyDict = try? JSONDecoder().decode([String: SpecialSchedule].self, from: data) {
+            // Convert String keys back to Date
+            var tempDict: [Date: SpecialSchedule] = [:]
+            for (key, value) in stringKeyDict {
+                if let timestamp = TimeInterval(key) {
+                    tempDict[Date(timeIntervalSince1970: timestamp)] = value
+                }
+            }
+            cachedSpecialSchedules = tempDict
+        }
+    }
+
+    // Get cached special schedule for a specific date
+    func getCachedSpecialSchedule(for date: Date) -> SpecialSchedule? {
+        let calendar = Calendar.current
+        let dateKey = calendar.startOfDay(for: date)
+        return cachedSpecialSchedules[dateKey]
+    }
+
+    // Cache a special schedule
+    func cacheSpecialSchedule(_ schedule: SpecialSchedule, for date: Date) {
+        let calendar = Calendar.current
+        let dateKey = calendar.startOfDay(for: date)
+        cachedSpecialSchedules[dateKey] = schedule
+    }
+
+    // Remove old cached schedules (older than 1 day)
+    func cleanOldCachedSchedules() {
+        let calendar = Calendar.current
+        let yesterday = calendar.date(byAdding: .day, value: -1, to: Date())!
+
+        cachedSpecialSchedules = cachedSpecialSchedules.filter { date, _ in
+            date >= yesterday
         }
     }
 

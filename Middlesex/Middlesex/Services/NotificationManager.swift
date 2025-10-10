@@ -8,22 +8,104 @@
 import Foundation
 import UserNotifications
 import Combine
+import UIKit
 
 @MainActor
-class NotificationManager: ObservableObject {
+class NotificationManager: NSObject, ObservableObject, UNUserNotificationCenterDelegate {
     static let shared = NotificationManager()
 
-    init() {}
+    override init() {
+        super.init()
+        UNUserNotificationCenter.current().delegate = self
+        setupNotificationCategories()
+    }
+
+    // Setup notification categories
+    private func setupNotificationCategories() {
+        let nextClassCategory = UNNotificationCategory(
+            identifier: "NEXT_CLASS",
+            actions: [],
+            intentIdentifiers: [],
+            options: []
+        )
+
+        let sportsCategory = UNNotificationCategory(
+            identifier: "SPORTS_GAME",
+            actions: [],
+            intentIdentifiers: [],
+            options: []
+        )
+
+        let announcementCategory = UNNotificationCategory(
+            identifier: "ANNOUNCEMENT",
+            actions: [],
+            intentIdentifiers: [],
+            options: []
+        )
+
+        UNUserNotificationCenter.current().setNotificationCategories([
+            nextClassCategory,
+            sportsCategory,
+            announcementCategory
+        ])
+
+        print("✅ Notification categories configured")
+    }
 
     // Request notification permissions
     func requestPermissions() async -> Bool {
         do {
             let granted = try await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge])
             print(granted ? "✅ Notification permissions granted" : "❌ Notification permissions denied")
+
+            if granted {
+                // Register for remote notifications on main thread
+                await MainActor.run {
+                    UIApplication.shared.registerForRemoteNotifications()
+                }
+            }
+
             return granted
         } catch {
             print("❌ Error requesting notification permissions: \(error)")
             return false
+        }
+    }
+
+    // MARK: - UNUserNotificationCenterDelegate
+
+    // Handle notification when app is in foreground
+    nonisolated func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        willPresent notification: UNNotification
+    ) async -> UNNotificationPresentationOptions {
+        print("📬 Notification received in foreground: \(notification.request.content.title)")
+        // Show notification even when app is in foreground
+        return [.banner, .sound, .badge]
+    }
+
+    // Handle notification tap
+    nonisolated func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse
+    ) async {
+        print("👆 User tapped notification: \(response.notification.request.content.title)")
+
+        // Handle different notification types
+        let categoryIdentifier = response.notification.request.content.categoryIdentifier
+
+        switch categoryIdentifier {
+        case "NEXT_CLASS":
+            print("   → Opening schedule view")
+            // TODO: Navigate to schedule
+        case "SPORTS_GAME":
+            print("   → Opening sports view")
+            // TODO: Navigate to sports
+        case "ANNOUNCEMENT":
+            print("   → Opening announcements view")
+            // TODO: Navigate to announcements
+        default:
+            break
         }
     }
 
@@ -127,6 +209,26 @@ class NotificationManager: ObservableObject {
             let identifiers = requests.filter { $0.identifier.starts(with: "sportsGame_") }.map { $0.identifier }
             UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: identifiers)
             print("🗑️ Removed \(identifiers.count) sports notifications")
+        }
+    }
+
+    // Test notification (fires in 5 seconds)
+    func sendTestNotification() {
+        let content = UNMutableNotificationContent()
+        content.title = "Test Notification"
+        content.body = "If you see this, notifications are working!"
+        content.sound = .default
+        content.categoryIdentifier = "ANNOUNCEMENT"
+
+        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 5, repeats: false)
+        let request = UNNotificationRequest(identifier: "test_\(Date().timeIntervalSince1970)", content: content, trigger: trigger)
+
+        UNUserNotificationCenter.current().add(request) { error in
+            if let error = error {
+                print("❌ Error sending test notification: \(error)")
+            } else {
+                print("✅ Test notification scheduled - will fire in 5 seconds")
+            }
         }
     }
 }

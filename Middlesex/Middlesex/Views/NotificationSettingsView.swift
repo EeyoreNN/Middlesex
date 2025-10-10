@@ -89,6 +89,29 @@ struct NotificationSettingsView: View {
                 } header: {
                     Text("Notification Types")
                 }
+
+                Section {
+                    Button {
+                        NotificationManager.shared.sendTestNotification()
+                    } label: {
+                        HStack {
+                            Image(systemName: "bell.badge.fill")
+                                .foregroundColor(.blue)
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Send Test Notification")
+                                    .font(.headline)
+                                Text("Notification will appear in 5 seconds")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                    }
+                    .disabled(!notificationsEnabled)
+                } header: {
+                    Text("Testing")
+                } footer: {
+                    Text("Tap to send a test notification. Make sure the app is in the background to see it.")
+                }
             }
             .navigationTitle("Notifications")
             .navigationBarTitleDisplayMode(.inline)

@@ -222,8 +222,19 @@ class CloudKitManager: ObservableObject {
     // MARK: - Special Schedules
 
     func fetchSpecialSchedule(for date: Date) async -> SpecialSchedule? {
+        let preferences = UserPreferences.shared
         let calendar = Calendar.current
         let startOfDay = calendar.startOfDay(for: date)
+
+        // Check cache first
+        if let cached = preferences.getCachedSpecialSchedule(for: startOfDay) {
+            print("✅ Using cached special schedule for \(startOfDay): \(cached.title)")
+            return cached
+        }
+
+        // Not in cache, fetch from CloudKit
+        print("📡 Fetching special schedule from CloudKit for \(startOfDay)")
+
         let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay)!
 
         let predicate = NSPredicate(
@@ -239,6 +250,8 @@ class CloudKitManager: ObservableObject {
                let record = try? firstResult.1.get(),
                let schedule = SpecialSchedule(record: record) {
                 print("📅 Found special schedule for \(date): \(schedule.title)")
+                // Cache it
+                preferences.cacheSpecialSchedule(schedule, for: startOfDay)
                 return schedule
             }
         } catch {
@@ -246,6 +259,50 @@ class CloudKitManager: ObservableObject {
         }
 
         return nil
+    }
+
+    // Prefetch special schedules for the next week
+    func prefetchUpcomingSpecialSchedules() async {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+
+        // Fetch schedules for next 7 days
+        guard let weekFromNow = calendar.date(byAdding: .day, value: 7, to: today) else {
+            return
+        }
+
+        let predicate = NSPredicate(
+            format: "date >= %@ AND date < %@ AND isActive == 1",
+            today as NSDate,
+            weekFromNow as NSDate
+        )
+
+        let query = CKQuery(recordType: "SpecialSchedule", predicate: predicate)
+        query.sortDescriptors = [NSSortDescriptor(key: "date", ascending: true)]
+
+        do {
+            let results = try await publicDatabase.records(matching: query)
+            let preferences = UserPreferences.shared
+
+            var count = 0
+            for result in results.matchResults {
+                if let record = try? result.1.get(),
+                   let schedule = SpecialSchedule(record: record) {
+                    if let scheduleDate = schedule.date {
+                        let dateKey = calendar.startOfDay(for: scheduleDate)
+                        preferences.cacheSpecialSchedule(schedule, for: dateKey)
+                        count += 1
+                    }
+                }
+            }
+
+            print("✅ Prefetched \(count) special schedules for the upcoming week")
+
+            // Clean up old cached schedules
+            preferences.cleanOldCachedSchedules()
+        } catch {
+            print("❌ Failed to prefetch special schedules: \(error)")
+        }
     }
 
     // MARK: - User Preferences
@@ -302,6 +359,59 @@ class CloudKitManager: ObservableObject {
             print("✅ Saved user preferences to CloudKit")
         } catch {
             print("❌ Failed to save user preferences: \(error)")
+        }
+    }
+
+    // MARK: - Device Token Management
+
+    func saveDeviceToken(token: String, userId: String) async {
+        // Check if token already exists for this user
+        let predicate = NSPredicate(format: "userId == %@ AND deviceToken == %@", userId, token)
+        let query = CKQuery(recordType: "DeviceToken", predicate: predicate)
+
+        do {
+            let results = try await publicDatabase.records(matching: query)
+
+            // If token already exists, just update timestamp
+            if let firstResult = results.matchResults.first,
+               let existingRecord = try? firstResult.1.get() {
+                existingRecord["lastUpdated"] = Date() as CKRecordValue
+                try await publicDatabase.save(existingRecord)
+                print("✅ Updated existing device token timestamp")
+                return
+            }
+
+            // Create new device token record
+            let record = CKRecord(recordType: "DeviceToken")
+            record["userId"] = userId as CKRecordValue
+            record["deviceToken"] = token as CKRecordValue
+            record["createdAt"] = Date() as CKRecordValue
+            record["lastUpdated"] = Date() as CKRecordValue
+            record["isActive"] = 1 as CKRecordValue
+
+            try await publicDatabase.save(record)
+            print("✅ Saved device token to CloudKit")
+        } catch {
+            print("❌ Failed to save device token: \(error)")
+        }
+    }
+
+    func removeDeviceToken(token: String, userId: String) async {
+        // Mark device token as inactive (for uninstalls or sign-outs)
+        let predicate = NSPredicate(format: "userId == %@ AND deviceToken == %@", userId, token)
+        let query = CKQuery(recordType: "DeviceToken", predicate: predicate)
+
+        do {
+            let results = try await publicDatabase.records(matching: query)
+            if let firstResult = results.matchResults.first,
+               let record = try? firstResult.1.get() {
+                record["isActive"] = 0 as CKRecordValue
+                record["lastUpdated"] = Date() as CKRecordValue
+                try await publicDatabase.save(record)
+                print("✅ Marked device token as inactive")
+            }
+        } catch {
+            print("❌ Failed to remove device token: \(error)")
         }
     }
 

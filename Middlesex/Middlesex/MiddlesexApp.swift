@@ -10,6 +10,8 @@ import CloudKit
 
 @main
 struct MiddlesexApp: App {
+    @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+
     @StateObject private var cloudKitManager = CloudKitManager.shared
     @StateObject private var userPreferences = UserPreferences.shared
     @StateObject private var liveActivityManager: LiveActivityManager = {
@@ -40,6 +42,11 @@ struct MiddlesexApp: App {
                         Task {
                             await notificationManager.requestPermissions()
                         }
+                    }
+
+                    // Prefetch special schedules for upcoming week (runs in background)
+                    Task {
+                        await cloudKitManager.prefetchUpcomingSpecialSchedules()
                     }
                 }
                 .onChange(of: scenePhase) { _, newPhase in

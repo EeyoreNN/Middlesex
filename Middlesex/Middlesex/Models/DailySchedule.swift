@@ -31,11 +31,18 @@
 
 import Foundation
 
-struct BlockTime: Identifiable {
-    let id = UUID()
+struct BlockTime: Identifiable, Codable {
+    let id: UUID
     let block: String // "A", "Ax", "F", etc.
     let startTime: String
     let endTime: String
+
+    init(block: String, startTime: String, endTime: String) {
+        self.id = UUID()
+        self.block = block
+        self.startTime = startTime
+        self.endTime = endTime
+    }
 
     // Parse time string like "8:00" or "1:20" to Date
     // Note: Times after 12:55 use 12-hour format and are PM (e.g., "1:20" = 1:20 PM, "2:05" = 2:05 PM)

@@ -8,9 +8,9 @@
 import Foundation
 import CloudKit
 
-struct SpecialSchedule: Identifiable {
+struct SpecialSchedule: Identifiable, Codable {
     let id: String
-    let date: Date // The specific date this schedule applies to
+    let date: Date? // The specific date this schedule applies to
     let title: String // e.g., "Early Dismissal", "Assembly Schedule"
     let blocks: [BlockTime] // Custom blocks for this day
     let createdBy: String
@@ -65,7 +65,9 @@ struct SpecialSchedule: Identifiable {
     func toRecord() -> CKRecord {
         let record = CKRecord(recordType: "SpecialSchedule")
         record["id"] = id as CKRecordValue
-        record["date"] = date as CKRecordValue
+        if let date = date {
+            record["date"] = date as CKRecordValue
+        }
         record["title"] = title as CKRecordValue
         record["createdBy"] = createdBy as CKRecordValue
         record["createdAt"] = createdAt as CKRecordValue
