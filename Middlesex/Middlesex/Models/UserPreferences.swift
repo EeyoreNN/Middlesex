@@ -20,6 +20,17 @@ class UserPreferences: ObservableObject {
     @AppStorage("userGrade") var userGrade: String = ""
     @AppStorage("isAdmin") var isAdmin: Bool = false
 
+    // Notification preferences
+    @AppStorage("notificationsNextClass") var notificationsNextClass: Bool = true {
+        didSet { syncNotificationPreferencesToCloudKit() }
+    }
+    @AppStorage("notificationsSportsUpdates") var notificationsSportsUpdates: Bool = true {
+        didSet { syncNotificationPreferencesToCloudKit() }
+    }
+    @AppStorage("notificationsAnnouncements") var notificationsAnnouncements: Bool = true {
+        didSet { syncNotificationPreferencesToCloudKit() }
+    }
+
     // Store user's class schedule as JSON
     @Published var redWeekSchedule: [Int: UserClass] = [:] {
         didSet {
@@ -101,6 +112,38 @@ class UserPreferences: ObservableObject {
         isAdmin = false
         redWeekSchedule = [:]
         whiteWeekSchedule = [:]
+    }
+
+    // MARK: - CloudKit Sync
+
+    func loadNotificationPreferencesFromCloudKit() {
+        guard !userIdentifier.isEmpty else { return }
+
+        Task {
+            let cloudKitManager = CloudKitManager.shared
+            if let preferences = await cloudKitManager.fetchUserPreferences(userId: userIdentifier) {
+                await MainActor.run {
+                    // Temporarily disable syncing while loading
+                    self.notificationsNextClass = preferences.notificationsNextClass
+                    self.notificationsSportsUpdates = preferences.notificationsSportsUpdates
+                    self.notificationsAnnouncements = preferences.notificationsAnnouncements
+                }
+            }
+        }
+    }
+
+    private func syncNotificationPreferencesToCloudKit() {
+        guard !userIdentifier.isEmpty else { return }
+
+        Task {
+            let cloudKitManager = CloudKitManager.shared
+            await cloudKitManager.saveUserPreferences(
+                userId: userIdentifier,
+                notificationsNextClass: notificationsNextClass,
+                notificationsSportsUpdates: notificationsSportsUpdates,
+                notificationsAnnouncements: notificationsAnnouncements
+            )
+        }
     }
 }
 

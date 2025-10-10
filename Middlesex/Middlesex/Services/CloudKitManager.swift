@@ -248,6 +248,63 @@ class CloudKitManager: ObservableObject {
         return nil
     }
 
+    // MARK: - User Preferences
+
+    func fetchUserPreferences(userId: String) async -> (notificationsNextClass: Bool, notificationsSportsUpdates: Bool, notificationsAnnouncements: Bool)? {
+        let predicate = NSPredicate(format: "userId == %@", userId)
+        let query = CKQuery(recordType: "UserPreferences", predicate: predicate)
+
+        do {
+            let results = try await publicDatabase.records(matching: query)
+            if let firstResult = results.matchResults.first,
+               let record = try? firstResult.1.get() {
+                let nextClass = (record["notificationsNextClass"] as? Int64 ?? 1) == 1
+                let sports = (record["notificationsSportsUpdates"] as? Int64 ?? 1) == 1
+                let announcements = (record["notificationsAnnouncements"] as? Int64 ?? 1) == 1
+
+                print("✅ Loaded user preferences from CloudKit")
+                return (nextClass, sports, announcements)
+            }
+        } catch {
+            print("❌ Failed to fetch user preferences: \(error)")
+        }
+
+        return nil
+    }
+
+    func saveUserPreferences(userId: String, notificationsNextClass: Bool, notificationsSportsUpdates: Bool, notificationsAnnouncements: Bool) async {
+        // Check if preferences already exist
+        let predicate = NSPredicate(format: "userId == %@", userId)
+        let query = CKQuery(recordType: "UserPreferences", predicate: predicate)
+
+        do {
+            let results = try await publicDatabase.records(matching: query)
+
+            let record: CKRecord
+            if let firstResult = results.matchResults.first,
+               let existingRecord = try? firstResult.1.get() {
+                // Update existing record
+                record = existingRecord
+                print("📝 Updating existing user preferences in CloudKit")
+            } else {
+                // Create new record
+                record = CKRecord(recordType: "UserPreferences")
+                record["userId"] = userId as CKRecordValue
+                print("📝 Creating new user preferences in CloudKit")
+            }
+
+            record["notificationsNextClass"] = (notificationsNextClass ? 1 : 0) as CKRecordValue
+            record["notificationsSportsUpdates"] = (notificationsSportsUpdates ? 1 : 0) as CKRecordValue
+            record["notificationsAnnouncements"] = (notificationsAnnouncements ? 1 : 0) as CKRecordValue
+            record["updatedAt"] = Date() as CKRecordValue
+
+            try await publicDatabase.save(record)
+            print("✅ Saved user preferences to CloudKit")
+        } catch {
+            print("❌ Failed to save user preferences: \(error)")
+        }
+    }
+
     // MARK: - Helper Methods
 
     func refreshAllData() async {

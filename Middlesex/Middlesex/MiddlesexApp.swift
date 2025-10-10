@@ -20,6 +20,7 @@ struct MiddlesexApp: App {
             return LiveActivityManager.shared
         }
     }()
+    @StateObject private var notificationManager = NotificationManager.shared
 
     @Environment(\.scenePhase) private var scenePhase
 
@@ -32,6 +33,13 @@ struct MiddlesexApp: App {
                     // Check and start Live Activity when app opens
                     if #available(iOS 16.2, *) {
                         liveActivityManager.checkAndStartActivityIfNeeded()
+                    }
+
+                    // Request notification permissions
+                    if userPreferences.hasCompletedOnboarding {
+                        Task {
+                            await notificationManager.requestPermissions()
+                        }
                     }
                 }
                 .onChange(of: scenePhase) { _, newPhase in

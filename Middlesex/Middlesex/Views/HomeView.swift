@@ -16,6 +16,7 @@ struct HomeView: View {
     @State private var showingAnnouncementComposer = false
     @State private var showingAdminDashboard = false
     @State private var showingGuestClassesFlow = false
+    @State private var showingNotificationSettings = false
 
     var body: some View {
         NavigationView {
@@ -203,6 +204,27 @@ struct HomeView: View {
                     }
                     .padding(.horizontal)
 
+                    // Notification settings button
+                    Button {
+                        showingNotificationSettings = true
+                    } label: {
+                        HStack {
+                            Image(systemName: "bell.badge.fill")
+                                .foregroundColor(MiddlesexTheme.primaryRed)
+                            Text("Notification Settings")
+                                .font(.headline)
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .foregroundColor(.secondary)
+                        }
+                        .padding()
+                        .background(MiddlesexTheme.cardBackground)
+                        .cornerRadius(12)
+                        .shadow(color: Color.black.opacity(0.05), radius: 5, x: 0, y: 2)
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.horizontal)
+
                     // Today's info
                     VStack(alignment: .leading, spacing: 16) {
                         Text("Today")
@@ -264,6 +286,9 @@ struct HomeView: View {
             }
             .sheet(isPresented: $showingGuestClassesFlow) {
                 GuestClassesFlow()
+            }
+            .sheet(isPresented: $showingNotificationSettings) {
+                NotificationSettingsView()
             }
         }
     }
