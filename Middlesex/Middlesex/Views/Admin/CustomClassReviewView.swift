@@ -105,18 +105,20 @@ struct CustomClassReviewView: View {
             do {
                 let database = CKContainer.default().publicCloudDatabase
 
-                // Find and update the record
-                let predicate = NSPredicate(format: "id == %@", customClass.id)
-                let query = CKQuery(recordType: "CustomClass", predicate: predicate)
+                if let recordID = customClass.recordID {
+                    let records = try await database.records(for: [recordID])
+                    guard let result = records[recordID] else {
+                        throw CKError(.unknownItem)
+                    }
 
-                let results = try await database.records(matching: query)
-                if let recordResult = results.matchResults.first?.1,
-                   let record = try? recordResult.get() {
+                    let record = try result.get()
                     record["isApproved"] = 1 as CKRecordValue
                     try await database.save(record)
-
-                    await fetchCustomClasses()
+                } else {
+                    try await approveClassByQuery(customClass, in: database)
                 }
+
+                await fetchCustomClasses()
             } catch {
                 await MainActor.run {
                     errorMessage = "Failed to approve class: \(error.localizedDescription)"
@@ -131,17 +133,13 @@ struct CustomClassReviewView: View {
             do {
                 let database = CKContainer.default().publicCloudDatabase
 
-                // Find and delete the record
-                let predicate = NSPredicate(format: "id == %@", customClass.id)
-                let query = CKQuery(recordType: "CustomClass", predicate: predicate)
-
-                let results = try await database.records(matching: query)
-                if let recordResult = results.matchResults.first?.1,
-                   let record = try? recordResult.get() {
-                    _ = try await database.deleteRecord(withID: record.recordID)
-
-                    await fetchCustomClasses()
+                if let recordID = customClass.recordID {
+                    try await database.deleteRecord(withID: recordID)
+                } else {
+                    try await deleteClassByQuery(customClass, in: database)
                 }
+
+                await fetchCustomClasses()
             } catch {
                 await MainActor.run {
                     errorMessage = "Failed to delete class: \(error.localizedDescription)"
@@ -149,6 +147,33 @@ struct CustomClassReviewView: View {
                 }
             }
         }
+    }
+
+    private func approveClassByQuery(_ customClass: CustomClass, in database: CKDatabase) async throws {
+        let predicate = NSPredicate(format: "id == %@", customClass.id)
+        let query = CKQuery(recordType: "CustomClass", predicate: predicate)
+
+        let results = try await database.records(matching: query)
+        guard let recordResult = results.matchResults.first?.1,
+              let record = try? recordResult.get() else {
+            throw CKError(.unknownItem)
+        }
+
+        record["isApproved"] = 1 as CKRecordValue
+        try await database.save(record)
+    }
+
+    private func deleteClassByQuery(_ customClass: CustomClass, in database: CKDatabase) async throws {
+        let predicate = NSPredicate(format: "id == %@", customClass.id)
+        let query = CKQuery(recordType: "CustomClass", predicate: predicate)
+
+        let results = try await database.records(matching: query)
+        guard let recordResult = results.matchResults.first?.1,
+              let record = try? recordResult.get() else {
+            throw CKError(.unknownItem)
+        }
+
+        _ = try await database.deleteRecord(withID: record.recordID)
     }
 }
 

@@ -149,7 +149,7 @@ struct ScheduleView: View {
 
         // Map block names (A, Ax, B, Bx, etc.) to period numbers
         let blockLetter = String(block.prefix(1))
-        let isXBlock = block.count > 1 && block.lowercased().hasSuffix("x")
+        // Note: X block filtering is now handled in ScheduleBlockCard view
 
         // Map A->1, B->2, C->3, D->4, E->5, F->6, G->7
         let blockToPeriod: [String: Int] = [
@@ -163,28 +163,8 @@ struct ScheduleView: View {
         let userClass = preferences.getClassWithFallback(for: period, preferredWeekType: selectedWeekType)
 
         // If this is an X block, check if the class uses X blocks on this day
-        if isXBlock, let userClass = userClass {
-            let dayName = getCurrentDayName()
-
-            // Look up the SchoolClass from ClassList to get X block configuration
-            // Must match both name AND block (if block is specified)
-            if let schoolClass = ClassList.availableClasses.first(where: {
-                $0.name == userClass.className && ($0.block == nil || $0.block == blockLetter)
-            }) {
-                // Get the appropriate X block days based on week type
-                let xBlockDays = selectedWeekType == .red ? schoolClass.xBlockDaysRed : schoolClass.xBlockDaysWhite
-
-                // If X block days are defined, check if today is included
-                if let xBlockDays = xBlockDays {
-                    if !xBlockDays.contains(dayName) {
-                        // This class doesn't use X blocks on this day
-                        return nil
-                    }
-                }
-                // If xBlockDays is nil, use standard schedule (show all X blocks for this period)
-            }
-        }
-
+        // Note: This is a synchronous function, so we can't use async resolution here
+        // The X block check will be performed in the view itself
         return userClass
     }
 
@@ -211,9 +191,15 @@ struct ScheduleBlockCard: View {
     let weekType: ClassSchedule.WeekType
     @Environment(\.colorScheme) private var colorScheme
     @StateObject private var preferences = UserPreferences.shared
+    @State private var shouldShowClass = true
 
     var body: some View {
         let special = specialBlockInfo(blockTime.block)
+        let blockLetter = String(blockTime.block.prefix(1))
+        let isXBlock = blockTime.block.count > 1 && blockTime.block.lowercased().hasSuffix("x")
+
+        // Determine if we should show the class for X blocks
+        let displayUserClass = shouldShowClass ? userClass : nil
 
         HStack(spacing: 16) {
             // Block name and time
@@ -232,7 +218,7 @@ struct ScheduleBlockCard: View {
             }
             .frame(width: 70)
 
-            if let userClass = userClass {
+            if let userClass = displayUserClass {
                 let classColor = color(for: userClass.color)
 
                 // Class information
@@ -292,8 +278,39 @@ struct ScheduleBlockCard: View {
         .cornerRadius(12)
         .overlay(
             RoundedRectangle(cornerRadius: 12)
-                .stroke(borderColor(for: userClass, specialTint: special?.tint), lineWidth: 1)
+                .stroke(borderColor(for: displayUserClass, specialTint: special?.tint), lineWidth: 1)
         )
+        .task {
+            // Check if this X block should show the class
+            if isXBlock, let userClass = userClass {
+                let dayName = getCurrentDayName()
+
+                let usesXBlockToday = await XBlockScheduleResolver.usesXBlock(
+                    userClass: userClass,
+                    blockLetter: blockLetter,
+                    dayName: dayName,
+                    weekType: weekType
+                )
+
+                shouldShowClass = usesXBlockToday
+            }
+        }
+    }
+
+    private func getCurrentDayName() -> String {
+        let calendar = Calendar.current
+        let weekday = calendar.component(.weekday, from: Date())
+
+        switch weekday {
+        case 1: return "Sunday"
+        case 2: return "Monday"
+        case 3: return "Tuesday"
+        case 4: return "Wednesday"
+        case 5: return "Thursday"
+        case 6: return "Friday"
+        case 7: return "Saturday"
+        default: return "Monday"
+        }
     }
 }
 

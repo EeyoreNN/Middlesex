@@ -209,11 +209,25 @@ struct UserClass: Codable, Hashable {
     let teacher: String
     let room: String
     let color: String
+    let xBlockDaysRed: [String]?
+    let xBlockDaysWhite: [String]?
 
-    init(className: String, teacher: String, room: String, color: String = "#C8102E") {
+    init(className: String, teacher: String, room: String, color: String = "#C8102E", xBlockDaysRed: [String]? = nil, xBlockDaysWhite: [String]? = nil) {
         self.className = className
         self.teacher = teacher
         self.room = room
         self.color = color
+        self.xBlockDaysRed = xBlockDaysRed
+        self.xBlockDaysWhite = xBlockDaysWhite
+    }
+
+    // Get X block days for a specific week type
+    func xBlockDays(for weekType: ClassSchedule.WeekType) -> [String]? {
+        switch weekType {
+        case .red:
+            return xBlockDaysRed
+        case .white:
+            return xBlockDaysWhite
+        }
     }
 }

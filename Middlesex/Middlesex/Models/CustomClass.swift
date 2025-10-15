@@ -17,6 +17,7 @@ struct CustomClass: Identifiable {
     let submittedBy: String
     let submittedAt: Date
     let isApproved: Bool
+    let recordID: CKRecord.ID?
 
     init(id: String = UUID().uuidString,
          className: String,
@@ -25,7 +26,8 @@ struct CustomClass: Identifiable {
          department: String,
          submittedBy: String,
          submittedAt: Date = Date(),
-         isApproved: Bool = false) {
+         isApproved: Bool = false,
+         recordID: CKRecord.ID? = nil) {
         self.id = id
         self.className = className
         self.teacherName = teacherName
@@ -34,6 +36,7 @@ struct CustomClass: Identifiable {
         self.submittedBy = submittedBy
         self.submittedAt = submittedAt
         self.isApproved = isApproved
+        self.recordID = recordID
     }
 
     init?(from record: CKRecord) {
@@ -55,10 +58,11 @@ struct CustomClass: Identifiable {
         self.submittedBy = submittedBy
         self.submittedAt = submittedAt
         self.isApproved = (record["isApproved"] as? Int64 == 1)
+        self.recordID = record.recordID
     }
 
     func toRecord() -> CKRecord {
-        let record = CKRecord(recordType: "CustomClass")
+        let record = recordID.map { CKRecord(recordType: "CustomClass", recordID: $0) } ?? CKRecord(recordType: "CustomClass")
         record["id"] = id as CKRecordValue
         record["className"] = className as CKRecordValue
         record["teacherName"] = teacherName as CKRecordValue

@@ -7,8 +7,34 @@ class OpenAIVisionAPI {
 
     private let apiKeyKey = "OPENAI_API_KEY"
     private var cachedAPIKey: String?
+    private let keychain = KeychainHelper.shared
 
-    private init() {}
+    private init() {
+        // Migrate existing API key from UserDefaults to Keychain on first launch
+        migrateAPIKeyToKeychain()
+    }
+
+    // Migrate API key from UserDefaults to Keychain for improved security
+    private func migrateAPIKeyToKeychain() {
+        // Check if key exists in UserDefaults but not in Keychain
+        if let oldKey = UserDefaults.standard.string(forKey: apiKeyKey), !oldKey.isEmpty {
+            if !keychain.exists(forKey: apiKeyKey) {
+                print("🔑 [Migration] Migrating API key from UserDefaults to Keychain...")
+                do {
+                    try keychain.save(oldKey, forKey: apiKeyKey)
+                    // Remove from UserDefaults after successful migration
+                    UserDefaults.standard.removeObject(forKey: apiKeyKey)
+                    print("🔑 [Migration] ✅ Successfully migrated API key to Keychain")
+                } catch {
+                    print("🔑 [Migration] ❌ Failed to migrate API key: \(error)")
+                }
+            } else {
+                // Key already in Keychain, just remove from UserDefaults
+                UserDefaults.standard.removeObject(forKey: apiKeyKey)
+                print("🔑 [Migration] ✅ Removed API key from UserDefaults (already in Keychain)")
+            }
+        }
+    }
 
     private func getAPIKey() async throws -> String {
         print("🔑 [OpenAI] Starting API key lookup...")
@@ -19,27 +45,37 @@ class OpenAIVisionAPI {
             return cached
         }
 
-        // Try to fetch from CloudKit
+        // Try to fetch from Keychain (most secure, local)
+        print("🔑 [OpenAI] Checking Keychain...")
+        do {
+            if let keychainKey = try keychain.retrieve(forKey: apiKeyKey), !keychainKey.isEmpty {
+                print("🔑 [OpenAI] ✅ Found API key in Keychain")
+                cachedAPIKey = keychainKey
+                return keychainKey
+            }
+        } catch {
+            print("🔑 [OpenAI] ⚠️ Error reading from Keychain: \(error)")
+        }
+        print("🔑 [OpenAI] ⚠️ No API key in Keychain")
+
+        // Try to fetch from CloudKit (remote backup)
         print("🔑 [OpenAI] Attempting to fetch API key from CloudKit...")
         if let cloudKey = try? await fetchAPIKeyFromCloudKit() {
             print("🔑 [OpenAI] ✅ Found API key in CloudKit")
+            // Save to Keychain for future use
+            try? keychain.save(cloudKey, forKey: apiKeyKey)
             cachedAPIKey = cloudKey
             return cloudKey
         }
         print("🔑 [OpenAI] ⚠️ No API key found in CloudKit")
 
-        // Fallback to local UserDefaults
-        print("🔑 [OpenAI] Checking UserDefaults...")
-        if let key = UserDefaults.standard.string(forKey: apiKeyKey), !key.isEmpty {
-            print("🔑 [OpenAI] ✅ Found API key in UserDefaults")
-            return key
-        }
-        print("🔑 [OpenAI] ⚠️ No API key in UserDefaults")
-
-        // Fallback to Info.plist
+        // Fallback to Info.plist (for development)
         print("🔑 [OpenAI] Checking Info.plist...")
-        if let key = Bundle.main.object(forInfoDictionaryKey: apiKeyKey) as? String {
+        if let key = Bundle.main.object(forInfoDictionaryKey: apiKeyKey) as? String, !key.isEmpty {
             print("🔑 [OpenAI] ✅ Found API key in Info.plist")
+            // Save to Keychain for future use
+            try? keychain.save(key, forKey: apiKeyKey)
+            cachedAPIKey = key
             return key
         }
         print("🔑 [OpenAI] ⚠️ No API key in Info.plist")
@@ -99,10 +135,17 @@ class OpenAIVisionAPI {
 
     func setAPIKey(_ key: String) {
         print("🔑 [OpenAI] Setting API key...")
-        // Save to UserDefaults as fallback
-        UserDefaults.standard.set(key, forKey: apiKeyKey)
 
-        // Save to CloudKit asynchronously
+        // Save to Keychain (secure local storage)
+        do {
+            try keychain.save(key, forKey: apiKeyKey)
+            print("🔑 [OpenAI] ✅ API key saved to Keychain")
+            cachedAPIKey = key
+        } catch {
+            print("🔑 [OpenAI] ❌ Failed to save to Keychain: \(error)")
+        }
+
+        // Save to CloudKit asynchronously (remote backup)
         Task {
             do {
                 try await saveAPIKeyToCloudKit(key)

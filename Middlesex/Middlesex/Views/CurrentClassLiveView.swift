@@ -112,27 +112,25 @@ struct CurrentClassLiveView: View {
                 if isXBlock, let retrievedClass = retrievedClass {
                     let dayName = getCurrentDayName()
 
-                    // Look up the SchoolClass from ClassList to get X block configuration
-                    // Must match both name AND block (if block is specified)
-                    if let schoolClass = ClassList.availableClasses.first(where: {
-                        $0.name == retrievedClass.className && ($0.block == nil || $0.block == blockLetter)
-                    }) {
-                        // Get the appropriate X block days based on week type
-                        let xBlockDays = weekType == .red ? schoolClass.xBlockDaysRed : schoolClass.xBlockDaysWhite
+                    // Use new three-tier resolution system
+                    Task { @MainActor in
+                        let usesXBlockToday = await XBlockScheduleResolver.usesXBlock(
+                            userClass: retrievedClass,
+                            blockLetter: blockLetter,
+                            dayName: dayName,
+                            weekType: weekType
+                        )
 
-                        // If X block days are defined, check if today is included
-                        if let xBlockDays = xBlockDays {
-                            if !xBlockDays.contains(dayName) {
-                                // This class doesn't use X blocks on this day
-                                userClass = nil
-                                return
-                            }
+                        if usesXBlockToday {
+                            userClass = retrievedClass
+                        } else {
+                            // This class doesn't use X blocks on this day
+                            userClass = nil
                         }
-                        // If xBlockDays is nil, use standard schedule (show all X blocks for this period)
                     }
+                } else {
+                    userClass = retrievedClass
                 }
-
-                userClass = retrievedClass
             } else {
                 userClass = nil
             }
