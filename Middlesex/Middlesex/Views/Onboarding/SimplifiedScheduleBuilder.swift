@@ -13,6 +13,9 @@ struct SimplifiedScheduleBuilder: View {
     @State private var selectedClasses: [String: SchoolClass] = [:] // Block -> Class
     @State private var selectedTeachers: [String: Teacher] = [:] // Block -> Teacher
     @State private var selectedRooms: [String: String] = [:] // Block -> Room
+    @State private var xBlockDaysRed: [String: [String]] = [:] // Block -> Days
+    @State private var xBlockDaysWhite: [String: [String]] = [:] // Block -> Days
+    @State private var showingXBlockConfig = false
     @State private var showingExtracurricular = false
 
     let blocks = ["A", "B", "C", "D", "E", "F", "G"]
@@ -20,7 +23,20 @@ struct SimplifiedScheduleBuilder: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            if !showingExtracurricular {
+            if showingXBlockConfig {
+                // X Block configuration step
+                XBlockConfigurationView(
+                    selectedClasses: selectedClasses,
+                    selectedTeachers: selectedTeachers,
+                    xBlockDaysRed: $xBlockDaysRed,
+                    xBlockDaysWhite: $xBlockDaysWhite,
+                    onComplete: {
+                        saveSchedule()
+                        showingXBlockConfig = false
+                        showingExtracurricular = true
+                    }
+                )
+            } else if !showingExtracurricular {
                 // Progress bar
                 ProgressView(value: Double(currentStep), total: Double(blocks.count))
                     .tint(MiddlesexTheme.primaryRed)
@@ -44,8 +60,7 @@ struct SimplifiedScheduleBuilder: View {
                         selectedTeachers: $selectedTeachers,
                         selectedRooms: $selectedRooms,
                         onComplete: {
-                            saveSchedule()
-                            showingExtracurricular = true
+                            showingXBlockConfig = true
                         }
                     )
                 }
@@ -81,7 +96,9 @@ struct SimplifiedScheduleBuilder: View {
                 className: schoolClass.name,
                 teacher: teacherName,
                 room: roomName,
-                color: "#C8102E"
+                color: "#C8102E",
+                xBlockDaysRed: xBlockDaysRed[block],
+                xBlockDaysWhite: xBlockDaysWhite[block]
             )
 
             // Map block letters to period numbers (A=1, B=2, etc.)

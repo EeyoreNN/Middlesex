@@ -205,41 +205,50 @@ class OpenAIVisionAPI {
         return content
     }
 
-    func parseSchedule(imageData: Data, weekType: String) async throws -> [String: [BlockTime]] {
+    func parseSchedule(imageData: Data, weekType: String) async throws -> ParsedScheduleResult {
         let apiKey = try await getAPIKey()
 
         let base64Image = imageData.base64EncodedString()
 
+        // Get list of available classes to help AI match
+        let availableClasses = ClassList.availableClasses.map { $0.name }.joined(separator: ", ")
+
         let prompt = """
-        You are analyzing a school schedule image for \(weekType) Week at Middlesex School.
+        You are analyzing a Middlesex School student schedule for \(weekType) Week.
 
-        Extract the following information for EACH day of the week (Monday through Friday):
-        - All class blocks (A, B, C, D, E, F, G) with their start and end times
-        - Any X blocks (extended blocks) with their start and end times
-        - Morning Meeting or Assembly times if present
-        - Lunch block times
+        AVAILABLE CLASSES (for reference):
+        \(availableClasses)
 
-        IMPORTANT NOTES:
-        - X blocks are extended class periods that vary by day
-        - Some days may have X blocks, some may not
-        - Times should be in 24-hour format (e.g., 08:00, 13:30)
-        - Block names should be single letters (A, B, C, D, E, F, G) or "X" for extended blocks
-        - Include "Morning Meeting", "Assembly", or "Lunch" as block names when present
+        For each class block (A through G), extract:
+        1. The class name (match to available classes list if possible, or use exact text from schedule)
+        2. The room number (e.g., "C22", "01", "R109")
+        3. Which days have X blocks for this class (Monday through Saturday)
 
-        Return a JSON object with this exact structure:
+        IMPORTANT:
+        - Look for blocks labeled A, Ax, B, Bx, C, Cx, D, Dx, E, Ex, F, Fx, G, Gx
+        - When you see "Ax", "Bx", etc., that means the A/B/C block uses X time on that day
+        - Only report regular classes (A-G blocks), NOT special blocks like Lunch, Chapel, Meet, etc.
+        - Match class names to the available classes list when possible
+
+        Return a JSON object with this structure:
         {
-          "Monday": [
-            {"block": "A", "startTime": "08:00", "endTime": "08:50"},
-            {"block": "X", "startTime": "08:55", "endTime": "10:25"},
-            ...
-          ],
-          "Tuesday": [...],
-          "Wednesday": [...],
-          "Thursday": [...],
-          "Friday": [...]
+          "A": {
+            "className": "French Part II",
+            "room": "01",
+            "xBlockDays": ["Monday", "Thursday"]
+          },
+          "B": {
+            "className": "Spanish II",
+            "room": "03",
+            "xBlockDays": ["Wednesday", "Friday"]
+          },
+          ...
         }
 
-        Return ONLY the JSON object, no other text.
+        If a block has no X blocks, use an empty array for xBlockDays.
+        If a block is not used (Free Period), omit it from the response.
+
+        Return ONLY the JSON object, no other text or explanation.
         """
 
         let requestBody: [String: Any] = [
@@ -255,7 +264,8 @@ class OpenAIVisionAPI {
                         [
                             "type": "image_url",
                             "image_url": [
-                                "url": "data:image/jpeg;base64,\(base64Image)"
+                                "url": "data:image/jpeg;base64,\(base64Image)",
+                                "detail": "high"
                             ]
                         ]
                     ]
@@ -289,11 +299,11 @@ class OpenAIVisionAPI {
         }
 
         // Parse the JSON response
-        let schedule = try parseScheduleJSON(content)
+        let schedule = try parseScheduleResultJSON(content, weekType: weekType)
         return schedule
     }
 
-    private func parseScheduleJSON(_ jsonString: String) throws -> [String: [BlockTime]] {
+    private func parseScheduleResultJSON(_ jsonString: String, weekType: String) throws -> ParsedScheduleResult {
         // Clean the response - remove markdown code blocks if present
         var cleanJSON = jsonString.trimmingCharacters(in: .whitespacesAndNewlines)
         if cleanJSON.hasPrefix("```json") {
@@ -311,16 +321,26 @@ class OpenAIVisionAPI {
             throw ScheduleProcessingError.invalidResponse
         }
 
-        let scheduleData = try JSONDecoder().decode([String: [BlockTimeData]].self, from: jsonData)
+        let blockData = try JSONDecoder().decode([String: ParsedBlockInfo].self, from: jsonData)
 
-        // Convert BlockTimeData to BlockTime
-        var schedule: [String: [BlockTime]] = [:]
-        for (day, blocks) in scheduleData {
-            schedule[day] = blocks.map { BlockTime(block: $0.block, startTime: $0.startTime, endTime: $0.endTime) }
-        }
-
-        return schedule
+        return ParsedScheduleResult(
+            weekType: weekType,
+            blocks: blockData
+        )
     }
+}
+
+// MARK: - Parsed Schedule Models
+
+struct ParsedScheduleResult {
+    let weekType: String // "Red" or "White"
+    let blocks: [String: ParsedBlockInfo] // Block letter -> Info
+}
+
+struct ParsedBlockInfo: Codable {
+    let className: String
+    let room: String
+    let xBlockDays: [String] // Days this block uses X blocks
 }
 
 // MARK: - API Response Models

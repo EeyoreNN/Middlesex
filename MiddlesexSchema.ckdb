@@ -91,10 +91,10 @@ DEFINE SCHEMA
         department      STRING QUERYABLE,
         id              STRING QUERYABLE,
         isApproved      INT64 QUERYABLE,
-        roomNumber      STRING,
+        roomNumber      STRING QUERYABLE,
         submittedAt     TIMESTAMP QUERYABLE SORTABLE,
-        submittedBy     STRING,
-        teacherName     STRING,
+        submittedBy     STRING QUERYABLE,
+        teacherName     STRING QUERYABLE,
         GRANT READ, CREATE, WRITE TO "_icloud"
     );
 
@@ -142,10 +142,10 @@ DEFINE SCHEMA
         "___modifiedBy" REFERENCE,
         "___recordID"   REFERENCE QUERYABLE,
         blocksData      STRING,
-        createdAt       TIMESTAMP,
-        createdBy       STRING,
+        createdAt       TIMESTAMP QUERYABLE SORTABLE,
+        createdBy       STRING QUERYABLE,
         date            TIMESTAMP QUERYABLE SORTABLE,
-        id              STRING,
+        id              STRING QUERYABLE,
         isActive        INT64 QUERYABLE,
         title           STRING,
         GRANT READ, CREATE, WRITE TO "_icloud"
