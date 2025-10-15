@@ -36,9 +36,17 @@ class CampusWeatherManager: ObservableObject {
             let weather = try await weatherService.weather(for: campusLocation)
             self.currentWeather = weather
             print("✅ Weather fetched successfully for Middlesex School")
-        } catch {
-            print("❌ Failed to fetch weather: \(error.localizedDescription)")
-            self.errorMessage = "Unable to load weather data"
+        } catch let error as NSError {
+            print("❌ Failed to fetch weather: \(error)")
+            print("   Domain: \(error.domain)")
+            print("   Code: \(error.code)")
+            print("   Description: \(error.localizedDescription)")
+
+            if error.domain == "WeatherDaemon.WDSJWTAuthenticatorServiceListener.Errors" {
+                self.errorMessage = "WeatherKit not available. Check:\n1. Capability enabled in Xcode\n2. Running on real device or supported sim\n3. Network connection"
+            } else {
+                self.errorMessage = "Unable to load weather data"
+            }
         }
 
         isLoading = false
