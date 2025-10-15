@@ -115,10 +115,17 @@ struct CustomClassRequestView: View {
                 isApproved: false
             )
 
-            let database = CKContainer.default().publicCloudDatabase
+            let database = CKContainer(identifier: "iCloud.com.nicholasnoon.Middlesex").publicCloudDatabase
             let record = customClass.toRecord()
 
+            print("📤 Submitting CustomClass to CloudKit:")
+            print("   className: \(customClass.className)")
+            print("   teacher: \(customClass.teacherName)")
+            print("   room: \(customClass.roomNumber)")
+            print("   recordID: \(record.recordID.recordName)")
+
             try await database.save(record)
+            print("✅ Successfully saved CustomClass record")
 
             await MainActor.run {
                 showSuccess = true

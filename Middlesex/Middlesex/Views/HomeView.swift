@@ -6,10 +6,12 @@
 //
 
 import SwiftUI
+import WeatherKit
 
 struct HomeView: View {
     @StateObject private var preferences = UserPreferences.shared
     @StateObject private var cloudKitManager = CloudKitManager.shared
+    @StateObject private var weatherManager = CampusWeatherManager.shared
     @State private var tapCount = 0
     @State private var lastTapTime: Date?
     @State private var showingAdminCodeEntry = false
@@ -40,6 +42,10 @@ struct HomeView: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding()
+
+                    // Campus Weather Card
+                    CampusWeatherCard(weatherManager: weatherManager)
+                        .padding(.horizontal)
 
                     // Admin tools
                     if preferences.isAdmin {
@@ -287,6 +293,9 @@ struct HomeView: View {
             .sheet(isPresented: $showingGuestClassesFlow) {
                 GuestClassesFlow()
             }
+            .task {
+                await weatherManager.fetchWeather()
+            }
             .sheet(isPresented: $showingNotificationSettings) {
                 NotificationSettingsView()
             }
@@ -306,10 +315,19 @@ struct HomeView: View {
 
         print("🔔 Logo tap \(tapCount)/10")
 
-        // Show admin code entry after 10 taps
+        // After 10 taps determine admin flow
         if tapCount >= 10 {
-            print("✅ Opening admin code entry!")
-            showingAdminCodeEntry = true
+            if preferences.isAdmin {
+                print("✅ Already admin - opening dashboard")
+                showingAdminDashboard = true
+            } else if preferences.hasPermanentAdminAccess {
+                print("✅ Permanent admin detected - restoring admin access without code entry")
+                preferences.isAdmin = true
+                showingAdminDashboard = true
+            } else {
+                print("✅ Opening admin code entry!")
+                showingAdminCodeEntry = true
+            }
             tapCount = 0
         }
     }

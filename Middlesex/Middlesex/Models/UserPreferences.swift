@@ -19,6 +19,7 @@ class UserPreferences: ObservableObject {
     @AppStorage("userName") var userName: String = ""
     @AppStorage("userGrade") var userGrade: String = ""
     @AppStorage("isAdmin") var isAdmin: Bool = false
+    @AppStorage("hasPermanentAdminAccess") var hasPermanentAdminAccess: Bool = false
 
     // Notification preferences
     @AppStorage("notificationsNextClass") var notificationsNextClass: Bool = true {
@@ -167,6 +168,7 @@ class UserPreferences: ObservableObject {
         userName = ""
         userGrade = ""
         isAdmin = false
+        hasPermanentAdminAccess = false
         redWeekSchedule = [:]
         whiteWeekSchedule = [:]
     }

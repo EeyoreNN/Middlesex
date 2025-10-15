@@ -48,6 +48,10 @@ struct MiddlesexApp: App {
                     Task {
                         await cloudKitManager.prefetchUpcomingSpecialSchedules()
                     }
+
+                    Task {
+                        await cloudKitManager.refreshPermanentAdmins(force: true)
+                    }
                 }
                 .onChange(of: scenePhase) { _, newPhase in
                     // Re-check Live Activity when app becomes active
@@ -56,6 +60,10 @@ struct MiddlesexApp: App {
                             print("📱 App became active, checking for current class...")
                             liveActivityManager.checkAndStartActivityIfNeeded()
                         }
+
+                        Task {
+                            await cloudKitManager.refreshPermanentAdmins()
+                        }
                     }
                 }
                 .onReceive(NotificationCenter.default.publisher(for: UIApplication.significantTimeChangeNotification)) { _ in
@@ -63,6 +71,10 @@ struct MiddlesexApp: App {
                     if #available(iOS 16.2, *) {
                         print("⏰ Significant time change detected, checking for current class...")
                         liveActivityManager.checkAndStartActivityIfNeeded()
+                    }
+
+                    Task {
+                        await cloudKitManager.refreshPermanentAdmins()
                     }
                 }
         }

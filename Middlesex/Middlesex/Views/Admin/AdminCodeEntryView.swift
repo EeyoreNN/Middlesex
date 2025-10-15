@@ -2,7 +2,7 @@
 //  AdminCodeEntryView.swift
 //  Middlesex
 //
-//  Admin code entry and generation for Nick Noon
+//  Admin code entry and permanent admin management
 //
 
 import SwiftUI
@@ -10,6 +10,7 @@ import CloudKit
 
 struct AdminCodeEntryView: View {
     @Environment(\.dismiss) var dismiss
+    @StateObject private var cloudKitManager = CloudKitManager.shared
     @StateObject private var preferences = UserPreferences.shared
     @State private var enteredCode = ""
     @State private var isValidating = false
@@ -31,8 +32,8 @@ struct AdminCodeEntryView: View {
                     .font(.largeTitle.bold())
                     .foregroundColor(MiddlesexTheme.textPrimary)
 
-                // Show code generator for Nick Noon
-                if preferences.userName == "Nick Noon" {
+                // Show code generator for permanent admins
+                if canGenerateAdminCodes {
                     VStack(spacing: 20) {
                         Button {
                             generateCode()
@@ -135,21 +136,26 @@ struct AdminCodeEntryView: View {
                 }
             }
         }
+        .task {
+            await cloudKitManager.refreshPermanentAdmins()
+        }
     }
 
     private func generateCode() {
-        let code = AdminCode.create(generatedBy: preferences.userName)
-        generatedCode = code
+        guard canGenerateAdminCodes else {
+            return
+        }
 
-        // Save to CloudKit
+        let generatorId = preferences.userIdentifier.isEmpty ? preferences.userName : preferences.userIdentifier
+        let code = AdminCode.createTemporary(generatedBy: generatorId)
+
         Task {
             do {
-                let container = CKContainer(identifier: "iCloud.com.nicholasnoon.Middlesex")
-                let database = container.publicCloudDatabase
-                print("💾 Saving code to CloudKit (public database): \(code.code)")
-                let savedRecord = try await database.save(code.toRecord())
+                try await cloudKitManager.saveAdminCode(code)
                 print("✅ Admin code saved successfully: \(code.code)")
-                print("📝 Record ID: \(savedRecord.recordID.recordName)")
+                await MainActor.run {
+                    generatedCode = code
+                }
             } catch {
                 print("❌ Failed to save admin code: \(error)")
                 print("❌ Error details: \(error.localizedDescription)")
@@ -166,6 +172,11 @@ struct AdminCodeEntryView: View {
         isValidating = true
         errorMessage = nil
         print("🔍 Validating code: \(enteredCode)")
+
+        if enteredCode == AdminAccessConfig.permanentAdminCode {
+            Task { await claimPermanentAdminAccess() }
+            return
+        }
 
         Task {
             do {
@@ -206,12 +217,46 @@ struct AdminCodeEntryView: View {
                     return
                 }
 
+                let isAlreadyUsed = (record["isUsed"] as? Int64 ?? 0) == 1
+                if isAlreadyUsed {
+                    await MainActor.run {
+                        errorMessage = "Code already used"
+                        isValidating = false
+                    }
+                    return
+                }
+
                 if !adminCode.isValid {
                     await MainActor.run {
                         errorMessage = "Code expired"
                         isValidating = false
                     }
                     return
+                }
+
+                if adminCode.grantsPermanentAccess {
+                    let userId = preferences.userIdentifier
+                    guard !userId.isEmpty else {
+                        await MainActor.run {
+                            errorMessage = "Sign in required to claim permanent admin access"
+                            isValidating = false
+                        }
+                        return
+                    }
+
+                    do {
+                        try await cloudKitManager.registerPermanentAdmin(
+                            userId: userId,
+                            displayName: preferences.userName.isEmpty ? nil : preferences.userName,
+                            sourceCode: adminCode.code
+                        )
+                    } catch {
+                        await MainActor.run {
+                            errorMessage = "Failed to claim permanent admin access: \(error.localizedDescription)"
+                            isValidating = false
+                        }
+                        return
+                    }
                 }
 
                 // Grant admin access (code is valid and not expired)
@@ -221,7 +266,21 @@ struct AdminCodeEntryView: View {
                     dismiss()
                 }
 
+                record["isUsed"] = 1 as CKRecordValue
+                record["usedAt"] = Date() as CKRecordValue
+                let claimantId = preferences.userIdentifier.isEmpty ? preferences.userName : preferences.userIdentifier
+                record["usedBy"] = claimantId as CKRecordValue
+
+                do {
+                    try await database.save(record)
+                    print("📝 Code \(enteredCode) marked as used by \(claimantId)")
+                } catch {
+                    print("⚠️ Failed to update code usage metadata: \(error)")
+                }
+
                 print("✅ Admin access granted to \(preferences.userName)")
+
+                await cloudKitManager.refreshPermanentAdmins()
 
             } catch {
                 await MainActor.run {
@@ -231,6 +290,65 @@ struct AdminCodeEntryView: View {
                 }
             }
         }
+    }
+
+    private func claimPermanentAdminAccess() async {
+        guard !preferences.userIdentifier.isEmpty else {
+            await MainActor.run {
+                errorMessage = "Sign in required to claim permanent admin access"
+                isValidating = false
+            }
+            return
+        }
+
+        do {
+            await cloudKitManager.refreshPermanentAdmins()
+
+            if cloudKitManager.isPermanentAdmin(userId: preferences.userIdentifier) {
+                await MainActor.run {
+                    preferences.isAdmin = true
+                    isValidating = false
+                    dismiss()
+                }
+                return
+            }
+
+            if cloudKitManager.permanentAdminCodeAlreadyClaimed() {
+                await MainActor.run {
+                    errorMessage = "Permanent admin code already used"
+                    isValidating = false
+                }
+                return
+            }
+
+            try await cloudKitManager.registerPermanentAdmin(
+                userId: preferences.userIdentifier,
+                displayName: preferences.userName,
+                sourceCode: enteredCode
+            )
+
+            await MainActor.run {
+                preferences.isAdmin = true
+                isValidating = false
+                dismiss()
+            }
+        } catch {
+            await MainActor.run {
+                errorMessage = "Error claiming permanent access: \(error.localizedDescription)"
+                isValidating = false
+            }
+        }
+    }
+
+    private var canGenerateAdminCodes: Bool {
+        if preferences.isAdmin {
+            return true
+        }
+
+        return cloudKitManager.canGenerateAdminCodes(
+            userId: preferences.userIdentifier,
+            fallbackName: preferences.userName
+        )
     }
 }
 

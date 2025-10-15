@@ -6,9 +6,11 @@
 //
 
 import SwiftUI
+import CloudKit
 
 struct AdminDashboardView: View {
     @Environment(\.dismiss) var dismiss
+    @StateObject private var cloudKitManager = CloudKitManager.shared
     @StateObject private var preferences = UserPreferences.shared
 
     @State private var showingAnnouncementComposer = false
@@ -18,6 +20,7 @@ struct AdminDashboardView: View {
     @State private var showingAdminCodeEntry = false
     @State private var showingAPISettings = false
     @State private var showingCustomClassReview = false
+    @State private var showingPermanentAdminTools = false
 
     var body: some View {
         NavigationView {
@@ -63,6 +66,15 @@ struct AdminDashboardView: View {
                         Label("Review Custom Classes", systemImage: "list.clipboard")
                             .foregroundColor(MiddlesexTheme.primaryRed)
                     }
+
+                    Button {
+                        Task {
+                            await createTestCustomClasses()
+                        }
+                    } label: {
+                        Label("Create 3 Test Custom Classes", systemImage: "plus.circle")
+                            .foregroundColor(.orange)
+                    }
                 }
 
                 Section("Settings") {
@@ -78,6 +90,17 @@ struct AdminDashboardView: View {
                     } label: {
                         Label("Manage Admin Codes", systemImage: "key.fill")
                             .foregroundColor(MiddlesexTheme.primaryRed)
+                    }
+                }
+
+                if cloudKitManager.isCurrentUserPermanentAdmin() {
+                    Section("Permanent Admin Tools") {
+                        Button {
+                            showingPermanentAdminTools = true
+                        } label: {
+                            Label("Permanent Admin Management", systemImage: "shield.lefthalf.filled")
+                                .foregroundColor(MiddlesexTheme.primaryRed)
+                        }
                     }
                 }
 
@@ -120,7 +143,58 @@ struct AdminDashboardView: View {
             .sheet(isPresented: $showingCustomClassReview) {
                 CustomClassReviewView()
             }
+            .sheet(isPresented: $showingPermanentAdminTools) {
+                PermanentAdminManagementView()
+            }
         }
+        .task {
+            await cloudKitManager.refreshPermanentAdmins()
+        }
+    }
+
+    private func createTestCustomClasses() async {
+        let testClasses = [
+            CustomClass(
+                className: "Advanced Robotics",
+                teacherName: "Dr. Smith",
+                roomNumber: "SCI-101",
+                department: "Science",
+                submittedBy: "Test User 1",
+                isApproved: false
+            ),
+            CustomClass(
+                className: "Creative Writing Workshop",
+                teacherName: "Ms. Johnson",
+                roomNumber: "ENG-205",
+                department: "English",
+                submittedBy: "Test User 2",
+                isApproved: false
+            ),
+            CustomClass(
+                className: "Digital Music Production",
+                teacherName: "Mr. Williams",
+                roomNumber: "ART-310",
+                department: "Arts",
+                submittedBy: "Test User 3",
+                isApproved: false
+            )
+        ]
+
+        let database = CKContainer(identifier: "iCloud.com.nicholasnoon.Middlesex").publicCloudDatabase
+
+        print("🧪 Creating 3 test CustomClass records...")
+
+        for customClass in testClasses {
+            do {
+                let record = customClass.toRecord()
+                try await database.save(record)
+                print("✅ Created test class: \(customClass.className) (recordID: \(record.recordID.recordName))")
+            } catch {
+                print("❌ Failed to create test class \(customClass.className): \(error.localizedDescription)")
+            }
+        }
+
+        print("🧪 Test data creation complete!")
     }
 }
 

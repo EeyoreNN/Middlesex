@@ -20,9 +20,12 @@ class CloudKitManager: ObservableObject {
     @Published var announcements: [Announcement] = []
     @Published var sportsEvents: [SportsEvent] = []
     @Published var sportsTeams: [SportsTeam] = []
+    @Published private(set) var permanentAdmins: [PermanentAdmin] = []
 
     @Published var isLoading = false
     @Published var errorMessage: String?
+
+    private var hasLoadedPermanentAdmins = false
 
     private init() {
         // CloudKit container identifier matching entitlements
@@ -32,6 +35,10 @@ class CloudKitManager: ObservableObject {
         // Check iCloud account status
         Task {
             await checkAccountStatus()
+        }
+
+        Task {
+            await refreshPermanentAdmins()
         }
     }
 
@@ -56,6 +63,154 @@ class CloudKitManager: ObservableObject {
         } catch {
             print("❌ Error checking iCloud account status: \(error)")
         }
+    }
+
+    // MARK: - Admin Access
+
+    func refreshPermanentAdmins(force: Bool = false) async {
+        if hasLoadedPermanentAdmins && !force {
+            await evaluateAdminAccessState()
+            return
+        }
+
+        let predicate = NSPredicate(value: true)
+        let query = CKQuery(recordType: "PermanentAdmin", predicate: predicate)
+
+        do {
+            let results = try await publicDatabase.records(matching: query)
+            var fetched: [PermanentAdmin] = []
+
+            for result in results.matchResults {
+                do {
+                    let record = try result.1.get()
+                    if let admin = PermanentAdmin(record: record) {
+                        fetched.append(admin)
+                    }
+                } catch {
+                    print("⚠️ Failed to parse PermanentAdmin record: \(error)")
+                }
+            }
+
+            permanentAdmins = fetched
+            hasLoadedPermanentAdmins = true
+            await evaluateAdminAccessState()
+            print("✅ Loaded \(fetched.count) permanent admins")
+        } catch {
+            hasLoadedPermanentAdmins = false
+            print("❌ Failed to fetch permanent admins: \(error)")
+            await evaluateAdminAccessState()
+        }
+    }
+
+    func isPermanentAdmin(userId: String) -> Bool {
+        guard !userId.isEmpty else { return false }
+        return permanentAdmins.contains { $0.userId == userId }
+    }
+
+    func permanentAdminCodeAlreadyClaimed() -> Bool {
+        if permanentAdmins.contains(where: { $0.sourceCode == AdminAccessConfig.permanentAdminCode }) {
+            return true
+        }
+        return !permanentAdmins.isEmpty
+    }
+
+    func canGenerateAdminCodes(userId: String, fallbackName: String) -> Bool {
+        if !userId.isEmpty,
+           permanentAdmins.contains(where: { $0.userId == userId && $0.canGenerateCodes }) {
+            return true
+        }
+
+        return AdminAccessConfig.legacyCodeGeneratorNames.contains(fallbackName)
+    }
+
+    func isCurrentUserPermanentAdmin() -> Bool {
+        let preferences = UserPreferences.shared
+        let userId = preferences.userIdentifier
+        guard !userId.isEmpty else { return false }
+        return isPermanentAdmin(userId: userId)
+    }
+
+    func saveAdminCode(_ adminCode: AdminCode) async throws {
+        let record = adminCode.toRecord()
+        _ = try await publicDatabase.save(record)
+    }
+
+    func registerPermanentAdmin(userId: String, displayName: String?, sourceCode: String) async throws {
+        let record = PermanentAdmin.makeRecord(
+            userId: userId,
+            displayName: displayName,
+            sourceCode: sourceCode
+        )
+
+        let savedRecord = try await publicDatabase.save(record)
+
+        if let admin = PermanentAdmin(record: savedRecord) {
+            permanentAdmins.removeAll { $0.recordID == admin.recordID }
+            permanentAdmins.append(admin)
+            hasLoadedPermanentAdmins = true
+            await evaluateAdminAccessState()
+            print("✅ Registered permanent admin for userId \(userId)")
+        } else {
+            print("⚠️ Saved permanent admin but failed to parse record")
+        }
+    }
+
+    func removePermanentAdmin(_ admin: PermanentAdmin) async throws {
+        try await publicDatabase.deleteRecord(withID: admin.recordID)
+        permanentAdmins.removeAll { $0.recordID == admin.recordID }
+        if permanentAdmins.isEmpty {
+            hasLoadedPermanentAdmins = false
+        }
+        await evaluateAdminAccessState()
+        print("🗑️ Removed permanent admin for userId \(admin.userId)")
+    }
+
+    private func evaluateAdminAccessState() async {
+        let preferences = UserPreferences.shared
+        let userId = preferences.userIdentifier
+
+        guard !userId.isEmpty else {
+            preferences.hasPermanentAdminAccess = false
+            preferences.isAdmin = false
+            return
+        }
+
+        let hasPermanentAccess = permanentAdmins.contains { $0.userId == userId && $0.canGenerateCodes }
+
+        preferences.hasPermanentAdminAccess = hasPermanentAccess
+
+        if hasPermanentAccess {
+            preferences.isAdmin = true
+            return
+        }
+
+        let hasActiveTemporary = await hasActiveTemporaryAdminCode(userId: userId)
+        preferences.isAdmin = hasActiveTemporary
+    }
+
+    private func hasActiveTemporaryAdminCode(userId: String) async -> Bool {
+        let predicate = NSPredicate(format: "usedBy == %@ AND isUsed == 1", userId)
+        let query = CKQuery(recordType: "AdminCode", predicate: predicate)
+
+        do {
+            let results = try await publicDatabase.records(matching: query)
+            for result in results.matchResults {
+                do {
+                    let record = try result.1.get()
+                    if let adminCode = AdminCode(record: record),
+                       adminCode.type == .temporary,
+                       !adminCode.isExpired {
+                        return true
+                    }
+                } catch {
+                    print("⚠️ Failed to parse AdminCode record during temporary check: \(error)")
+                }
+            }
+        } catch {
+            print("❌ Failed to evaluate temporary admin codes: \(error)")
+        }
+
+        return false
     }
 
     // MARK: - Menu Items

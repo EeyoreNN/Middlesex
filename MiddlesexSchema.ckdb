@@ -15,6 +15,25 @@ DEFINE SCHEMA
         isUsed          INT64 QUERYABLE,
         usedAt          TIMESTAMP,
         usedBy          STRING,
+        codeType        STRING,
+        durationMinutes INT64,
+        grantsPermanent INT64,
+        GRANT READ, CREATE, WRITE TO "_icloud"
+    );
+
+    RECORD TYPE PermanentAdmin (
+        "___createTime" TIMESTAMP,
+        "___createdBy"  REFERENCE,
+        "___etag"       STRING,
+        "___modTime"    TIMESTAMP,
+        "___modifiedBy" REFERENCE,
+        "___recordID"   REFERENCE QUERYABLE,
+        id              STRING,
+        userId          STRING QUERYABLE,
+        displayName     STRING,
+        createdAt       TIMESTAMP QUERYABLE SORTABLE,
+        canGenerateCodes INT64,
+        sourceCode      STRING,
         GRANT READ, CREATE, WRITE TO "_icloud"
     );
 
