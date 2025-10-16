@@ -8,6 +8,7 @@
 import Foundation
 import ActivityKit
 import Combine
+import UserNotifications
 
 @available(iOS 16.2, *)
 @MainActor
@@ -17,6 +18,7 @@ class LiveActivityManager: ObservableObject {
     @Published var currentActivity: Activity<ClassActivityAttributes>?
     private var endCheckTimer: Timer?
     private var specialSchedule: SpecialSchedule?
+    private var pushTokenObserver: Task<Void, Never>?
 
     private init() {
         // Resume existing activities when app launches
@@ -160,16 +162,19 @@ class LiveActivityManager: ObservableObject {
         )
 
         do {
-            // Set staleDate to end of class
+            // Request Live Activity with push notification support
             let activity = try Activity.request(
                 attributes: attributes,
                 content: .init(state: initialState, staleDate: endDate),
-                pushType: nil
+                pushType: .token
             )
 
             currentActivity = activity
             print("✅ Live Activity started: \(activity.id)")
             print("   Will end at: \(endDate)")
+
+            // Start monitoring for push token
+            startPushTokenMonitoring(for: activity, endDate: endDate)
 
             // Schedule check to end and start next class
             scheduleEndCheck(endDate: endDate)
@@ -189,6 +194,74 @@ class LiveActivityManager: ObservableObject {
 
         } catch {
             print("❌ Error starting Live Activity: \(error.localizedDescription)")
+        }
+    }
+
+    // Monitor push token and schedule background update
+    private func startPushTokenMonitoring(for activity: Activity<ClassActivityAttributes>, endDate: Date) {
+        // Cancel any existing observer
+        pushTokenObserver?.cancel()
+
+        // Monitor push token changes
+        pushTokenObserver = Task {
+            for await pushToken in activity.pushTokenUpdates {
+                let tokenString = pushToken.map { String(format: "%02x", $0) }.joined()
+                print("📱 Live Activity Push Token: \(tokenString)")
+
+                // Schedule background task to update Live Activity when class ends
+                await scheduleActivityUpdate(
+                    pushToken: tokenString,
+                    activityId: activity.id,
+                    endDate: endDate
+                )
+            }
+        }
+    }
+
+    // Schedule background notification to update Live Activity
+    private func scheduleActivityUpdate(pushToken: String, activityId: String, endDate: Date) async {
+        // Calculate time until class ends
+        let timeUntilEnd = endDate.timeIntervalSince(Date())
+
+        guard timeUntilEnd > 0 else {
+            print("⚠️ Class already ended, not scheduling update")
+            return
+        }
+
+        print("⏰ Scheduling Live Activity update for \(timeUntilEnd) seconds from now")
+
+        // Schedule local notification to trigger at end time
+        // This will update the Live Activity even if app is closed
+        let content = UNMutableNotificationContent()
+        content.title = "Class Ended"
+        content.body = "Checking for next class..."
+        content.sound = nil // Silent
+        content.interruptionLevel = .passive
+
+        // Add data for the notification handler
+        content.userInfo = [
+            "type": "liveActivityUpdate",
+            "activityId": activityId,
+            "pushToken": pushToken
+        ]
+
+        // Schedule for when class ends
+        let trigger = UNTimeIntervalNotificationTrigger(
+            timeInterval: timeUntilEnd,
+            repeats: false
+        )
+
+        let request = UNNotificationRequest(
+            identifier: "liveActivity_\(activityId)",
+            content: content,
+            trigger: trigger
+        )
+
+        do {
+            try await UNUserNotificationCenter.current().add(request)
+            print("✅ Scheduled Live Activity update notification")
+        } catch {
+            print("❌ Failed to schedule update: \(error)")
         }
     }
 
@@ -256,6 +329,8 @@ class LiveActivityManager: ObservableObject {
     func stopCurrentActivity(dismissAfter: TimeInterval = 30) {
         endCheckTimer?.invalidate()
         endCheckTimer = nil
+        pushTokenObserver?.cancel()
+        pushTokenObserver = nil
 
         guard let activity = currentActivity else { return }
 
@@ -280,6 +355,8 @@ class LiveActivityManager: ObservableObject {
     func stopCurrentActivityAsync(dismissAfter: TimeInterval = 30) async {
         endCheckTimer?.invalidate()
         endCheckTimer = nil
+        pushTokenObserver?.cancel()
+        pushTokenObserver = nil
 
         guard let activity = currentActivity else { return }
 

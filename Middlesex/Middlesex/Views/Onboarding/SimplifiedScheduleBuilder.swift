@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import CloudKit
 
 struct SimplifiedScheduleBuilder: View {
     @StateObject private var preferences = UserPreferences.shared
@@ -119,10 +120,29 @@ struct BlockSelectionView: View {
     @State private var searchText = ""
     @State private var selectedDepartment: ClassDepartment?
     @State private var showingCustomClassRequest = false
+    @State private var approvedCustomClasses: [CustomClass] = []
+    @State private var isLoadingCustomClasses = false
 
     var availableClasses: [SchoolClass] {
         let alreadySelectedIDs = Set(alreadySelected.map { $0.id })
+
+        // Start with built-in classes
         var classes = ClassList.availableClasses.filter { !alreadySelectedIDs.contains($0.id) }
+
+        // Add approved custom classes converted to SchoolClass format
+        let customSchoolClasses = approvedCustomClasses.map { customClass -> SchoolClass in
+            // Convert department string to ClassDepartment enum, default to Other if not found
+            let department = ClassDepartment.allCases.first {
+                $0.rawValue == customClass.department
+            } ?? .other
+
+            return SchoolClass(
+                id: customClass.id,
+                name: customClass.className,
+                department: department
+            )
+        }
+        classes.append(contentsOf: customSchoolClasses)
 
         if let department = selectedDepartment {
             classes = classes.filter { $0.department == department }
@@ -242,6 +262,40 @@ struct BlockSelectionView: View {
         }
         .sheet(isPresented: $showingCustomClassRequest) {
             CustomClassRequestView()
+        }
+        .task {
+            await fetchApprovedCustomClasses()
+        }
+    }
+
+    private func fetchApprovedCustomClasses() async {
+        isLoadingCustomClasses = true
+        defer { isLoadingCustomClasses = false }
+
+        do {
+            let container = CKContainer(identifier: "iCloud.com.nicholasnoon.Middlesex")
+            let database = container.publicCloudDatabase
+
+            print("🔍 Fetching approved custom classes for onboarding...")
+
+            // Query for approved classes only
+            let predicate = NSPredicate(format: "isApproved == %d", 1)
+            let query = CKQuery(recordType: "CustomClass", predicate: predicate)
+            query.sortDescriptors = [NSSortDescriptor(key: "className", ascending: true)]
+
+            let results = try await database.records(matching: query)
+
+            let classes = results.matchResults.compactMap { _, result -> CustomClass? in
+                guard let record = try? result.get() else { return nil }
+                return CustomClass(from: record)
+            }
+
+            await MainActor.run {
+                self.approvedCustomClasses = classes
+                print("✅ Loaded \(classes.count) approved custom classes for onboarding")
+            }
+        } catch {
+            print("❌ Failed to fetch approved custom classes: \(error.localizedDescription)")
         }
     }
 }

@@ -138,6 +138,23 @@ class NotificationManager: NSObject, ObservableObject, UNUserNotificationCenterD
         willPresent notification: UNNotification
     ) async -> UNNotificationPresentationOptions {
         print("📬 Notification received in foreground: \(notification.request.content.title)")
+
+        // Check if this is a Live Activity update notification
+        let userInfo = notification.request.content.userInfo
+        if let type = userInfo["type"] as? String, type == "liveActivityUpdate" {
+            print("   → Live Activity update notification received")
+
+            // Trigger Live Activity check on main actor
+            await MainActor.run {
+                if #available(iOS 16.2, *) {
+                    LiveActivityManager.shared.checkAndStartActivityIfNeeded()
+                }
+            }
+
+            // Don't show this notification to user (it's internal)
+            return []
+        }
+
         // Show notification even when app is in foreground
         return [.banner, .sound, .badge]
     }
@@ -148,6 +165,20 @@ class NotificationManager: NSObject, ObservableObject, UNUserNotificationCenterD
         didReceive response: UNNotificationResponse
     ) async {
         print("👆 User tapped notification: \(response.notification.request.content.title)")
+
+        // Check if this is a Live Activity update notification
+        let userInfo = response.notification.request.content.userInfo
+        if let type = userInfo["type"] as? String, type == "liveActivityUpdate" {
+            print("   → Live Activity update triggered")
+
+            // Update Live Activity on main actor
+            await MainActor.run {
+                if #available(iOS 16.2, *) {
+                    LiveActivityManager.shared.checkAndStartActivityIfNeeded()
+                }
+            }
+            return
+        }
 
         // Handle different notification types
         let categoryIdentifier = response.notification.request.content.categoryIdentifier
