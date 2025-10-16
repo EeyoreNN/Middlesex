@@ -42,6 +42,33 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         // - Network connectivity issues
     }
 
+    // MARK: - Remote Notification Handler
+
+    func application(_ application: UIApplication, didReceiveRemoteNotification userInfo: [AnyHashable : Any], fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
+        print("📨 Received remote notification")
+        print("   UserInfo: \(userInfo)")
+
+        // Check if this is a CloudKit notification
+        if let notification = CKNotification(fromRemoteNotificationDictionary: userInfo) {
+            print("☁️ CloudKit notification received")
+            print("   Type: \(notification.notificationType.rawValue)")
+
+            // Handle query (subscription) notifications
+            if notification.notificationType == .query {
+                print("📢 Announcement subscription triggered")
+
+                // Handle the announcement push asynchronously
+                Task {
+                    await CloudKitManager.shared.handleAnnouncementPush()
+                    completionHandler(.newData)
+                }
+                return
+            }
+        }
+
+        completionHandler(.noData)
+    }
+
     // MARK: - CloudKit Device Token Storage
 
     private func storeDeviceToken(_ token: String) async {

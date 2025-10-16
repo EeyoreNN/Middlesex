@@ -44,6 +44,13 @@ struct MiddlesexApp: App {
                         }
                     }
 
+                    // Subscribe to announcement updates (CloudKit push notifications)
+                    if userPreferences.hasCompletedOnboarding {
+                        Task {
+                            await cloudKitManager.subscribeToAnnouncementUpdates()
+                        }
+                    }
+
                     // Prefetch special schedules for upcoming week (runs in background)
                     Task {
                         await cloudKitManager.prefetchUpcomingSpecialSchedules()

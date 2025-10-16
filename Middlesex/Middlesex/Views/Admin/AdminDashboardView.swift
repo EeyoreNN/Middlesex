@@ -77,6 +77,26 @@ struct AdminDashboardView: View {
                     }
                 }
 
+                Section("Testing Tools") {
+                    Button {
+                        Task {
+                            await createTestUsers()
+                        }
+                    } label: {
+                        Label("Check/Setup Test Users", systemImage: "person.3.fill")
+                            .foregroundColor(.green)
+                    }
+
+                    Button {
+                        Task {
+                            await forceSyncUserData()
+                        }
+                    } label: {
+                        Label("Force Sync My Data to CloudKit", systemImage: "arrow.triangle.2.circlepath")
+                            .foregroundColor(.blue)
+                    }
+                }
+
                 Section("Settings") {
                     Button {
                         showingAPISettings = true
@@ -195,6 +215,107 @@ struct AdminDashboardView: View {
         }
 
         print("🧪 Test data creation complete!")
+    }
+
+    private func createTestUsers() async {
+        let database = CKContainer(identifier: "iCloud.com.nicholasnoon.Middlesex").publicCloudDatabase
+
+        print("🔍 Checking for existing UserPreferences records in CloudKit...")
+
+        do {
+            // Query all UserPreferences records to see what exists
+            let predicate = NSPredicate(value: true)
+            let query = CKQuery(recordType: "UserPreferences", predicate: predicate)
+            let results = try await database.records(matching: query)
+
+            print("📊 Found \(results.matchResults.count) existing UserPreferences records:")
+
+            var existingUsers: [(userId: String, userName: String?, userGrade: String?)] = []
+            for (_, result) in results.matchResults {
+                if let record = try? result.get() {
+                    let userId = record["userId"] as? String ?? "unknown"
+                    let userName = record["userName"] as? String
+                    let userGrade = record["userGrade"] as? String
+                    existingUsers.append((userId, userName, userGrade))
+                    print("   - userId: \(userId)")
+                    print("     userName: \(userName ?? "(not set)")")
+                    print("     userGrade: \(userGrade ?? "(not set)")")
+                }
+            }
+
+            // Try to update the current user's record with a test name
+            let currentUserId = UserPreferences.shared.userIdentifier
+            if !currentUserId.isEmpty {
+                print("\n💡 Attempting to update your own UserPreferences record...")
+                print("   Your userId: \(currentUserId)")
+
+                // Check if current user already has a record
+                let userPredicate = NSPredicate(format: "userId == %@", currentUserId)
+                let userQuery = CKQuery(recordType: "UserPreferences", predicate: userPredicate)
+                let userResults = try await database.records(matching: userQuery)
+
+                if let existingResult = userResults.matchResults.first,
+                   let existingRecord = try? existingResult.1.get() {
+                    // Record exists, try to update it
+                    let currentName = existingRecord["userName"] as? String ?? ""
+                    if currentName.isEmpty {
+                        existingRecord["userName"] = "Test Admin User" as CKRecordValue
+                        existingRecord["userGrade"] = "Faculty" as CKRecordValue
+                        existingRecord["updatedAt"] = Date() as CKRecordValue
+
+                        try await database.save(existingRecord)
+                        print("✅ Updated your UserPreferences with test name: 'Test Admin User'")
+                        print("💡 Now open the announcement composer to test!")
+                    } else {
+                        print("✅ Your record already has a name: '\(currentName)'")
+                        print("💡 This name will appear in the announcement composer!")
+                    }
+                } else {
+                    print("⚠️ No UserPreferences record found for your userId")
+                    print("💡 The app should create one automatically when you save settings")
+                }
+            }
+
+            if existingUsers.isEmpty {
+                print("\n⚠️ No UserPreferences records found in CloudKit!")
+                print("💡 Suggestions:")
+                print("   1. Make sure users have opened the app and set their names in Settings")
+                print("   2. Use the manual entry option in the announcement composer")
+                print("   3. Check CloudKit Dashboard to see if records exist")
+            } else {
+                let namedUsers = existingUsers.filter { $0.userName != nil && !$0.userName!.isEmpty }
+                print("\n✅ Found \(namedUsers.count) users with names set")
+                print("💡 These users will appear in the announcement composer autocomplete!")
+            }
+
+        } catch {
+            print("❌ Error querying UserPreferences: \(error.localizedDescription)")
+        }
+    }
+
+    private func forceSyncUserData() async {
+        print("🔄 Force syncing user data to CloudKit...")
+        print("   userId: \(preferences.userIdentifier)")
+        print("   userName: \(preferences.userName)")
+        print("   userGrade: \(preferences.userGrade)")
+
+        guard !preferences.userIdentifier.isEmpty else {
+            print("❌ Cannot sync - no userIdentifier set!")
+            return
+        }
+
+        await cloudKitManager.saveUserData(
+            userId: preferences.userIdentifier,
+            userName: preferences.userName,
+            userGrade: preferences.userGrade,
+            prefersCelsius: preferences.prefersCelsius,
+            notificationsNextClass: preferences.notificationsNextClass,
+            notificationsSportsUpdates: preferences.notificationsSportsUpdates,
+            notificationsAnnouncements: preferences.notificationsAnnouncements
+        )
+
+        print("✅ Force sync complete!")
+        print("💡 Now run 'Check/Setup Test Users' to verify your data is in CloudKit")
     }
 }
 

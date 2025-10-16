@@ -27,6 +27,7 @@ class UserPreferences: ObservableObject {
     }
     @AppStorage("isAdmin") var isAdmin: Bool = false
     @AppStorage("hasPermanentAdminAccess") var hasPermanentAdminAccess: Bool = false
+    @AppStorage("hasCompletedCloudKitMigration") private var hasCompletedCloudKitMigration: Bool = false
 
     // Notification preferences
     @AppStorage("notificationsNextClass") var notificationsNextClass: Bool = true {
@@ -64,6 +65,11 @@ class UserPreferences: ObservableObject {
     private init() {
         loadSchedules()
         loadCachedSpecialSchedules()
+
+        // Perform CloudKit migration if needed
+        Task {
+            await performCloudKitMigrationIfNeeded()
+        }
     }
 
     private func saveSchedule(_ schedule: [Int: UserClass], key: String) {
@@ -254,6 +260,57 @@ class UserPreferences: ObservableObject {
                 redWeek: redWeekSchedule,
                 whiteWeek: whiteWeekSchedule
             )
+        }
+    }
+
+    // MARK: - CloudKit Migration
+
+    private func performCloudKitMigrationIfNeeded() async {
+        // Only run once
+        guard !hasCompletedCloudKitMigration else {
+            return
+        }
+
+        // Only migrate if user has completed onboarding and has a user ID
+        guard hasCompletedOnboarding, !userIdentifier.isEmpty else {
+            return
+        }
+
+        // Only migrate if user has a name set (otherwise nothing to migrate)
+        guard !userName.isEmpty else {
+            await MainActor.run {
+                hasCompletedCloudKitMigration = true
+            }
+            return
+        }
+
+        print("🔄 Starting automatic CloudKit migration for user: \(userName)")
+
+        let cloudKitManager = CloudKitManager.shared
+
+        // Force sync user data to CloudKit
+        await cloudKitManager.saveUserData(
+            userId: userIdentifier,
+            userName: userName,
+            userGrade: userGrade,
+            prefersCelsius: prefersCelsius,
+            notificationsNextClass: notificationsNextClass,
+            notificationsSportsUpdates: notificationsSportsUpdates,
+            notificationsAnnouncements: notificationsAnnouncements
+        )
+
+        await MainActor.run {
+            hasCompletedCloudKitMigration = true
+            print("✅ CloudKit migration completed successfully!")
+            print("   Your name '\(userName)' is now available in announcement targeting")
+        }
+    }
+
+    // Public method to force re-migration (for debugging)
+    func resetCloudKitMigration() {
+        hasCompletedCloudKitMigration = false
+        Task {
+            await performCloudKitMigrationIfNeeded()
         }
     }
 }

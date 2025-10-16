@@ -694,6 +694,76 @@ class CloudKitManager: ObservableObject {
         }
     }
 
+    // MARK: - Push Notification Subscriptions
+
+    /// Subscribe to announcement changes to receive silent push notifications
+    func subscribeToAnnouncementUpdates() async {
+        let announcementSubscriptionID = "announcement-updates"
+
+        do {
+            // Check if subscription already exists
+            let existingSubscriptions = try await publicDatabase.allSubscriptions()
+
+            // Remove old subscription if it exists
+            if existingSubscriptions.contains(where: { $0.subscriptionID == announcementSubscriptionID }) {
+                print("📡 Announcement subscription already exists")
+                return
+            }
+
+            // Create a subscription for all new Announcement records
+            let subscription = CKQuerySubscription(
+                recordType: "Announcement",
+                predicate: NSPredicate(value: true),
+                subscriptionID: announcementSubscriptionID,
+                options: [.firesOnRecordCreation]
+            )
+
+            // Configure notification info
+            let notificationInfo = CKSubscription.NotificationInfo()
+            notificationInfo.shouldSendContentAvailable = true // Silent push
+            notificationInfo.alertBody = "New announcement posted"
+            notificationInfo.soundName = "default"
+
+            subscription.notificationInfo = notificationInfo
+
+            // Save the subscription
+            try await publicDatabase.save(subscription)
+            print("✅ Subscribed to announcement updates")
+        } catch {
+            print("❌ Failed to subscribe to announcements: \(error.localizedDescription)")
+        }
+    }
+
+    /// Handle incoming silent push notification for new announcements
+    func handleAnnouncementPush() async {
+        print("🔔 Received announcement push notification")
+
+        // Fetch the latest announcements
+        await fetchActiveAnnouncements()
+
+        // Get the newest announcement to show notification
+        guard let latestAnnouncement = announcements.first else {
+            print("⚠️ No announcements found after push")
+            return
+        }
+
+        // Check if this announcement is targeted to the current user
+        let userGrade = UserPreferences.shared.userGrade
+        let userName = UserPreferences.shared.userName
+
+        if latestAnnouncement.isTargetedTo(userGrade: userGrade, userName: userName) {
+            // Show local notification
+            await NotificationManager.shared.sendNotification(
+                title: latestAnnouncement.title,
+                body: latestAnnouncement.body,
+                category: latestAnnouncement.category.rawValue.uppercased()
+            )
+            print("✅ Notification shown for: \(latestAnnouncement.title)")
+        } else {
+            print("ℹ️ Announcement not targeted to current user, skipping notification")
+        }
+    }
+
     // MARK: - Helper Methods
 
     func refreshAllData() async {

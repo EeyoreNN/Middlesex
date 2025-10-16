@@ -88,6 +88,20 @@ struct AnnouncementComposerView: View {
 
                     if targetAudience == .specific {
                         VStack(alignment: .leading, spacing: 12) {
+                            // Info message if no users available
+                            if availableUsers.isEmpty && !isLoadingUsers {
+                                HStack {
+                                    Image(systemName: "info.circle")
+                                        .foregroundColor(.orange)
+                                    Text("No users found in CloudKit. Make sure users have set their names in UserPreferences.")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+                                .padding(8)
+                                .background(Color.orange.opacity(0.1))
+                                .cornerRadius(8)
+                            }
+
                             // Search field
                             HStack {
                                 Image(systemName: "magnifyingglass")
@@ -95,6 +109,7 @@ struct AnnouncementComposerView: View {
                                 TextField("Search for users...", text: $userSearchText)
                                     .textContentType(.name)
                                     .autocapitalization(.words)
+                                    .disabled(availableUsers.isEmpty && !isLoadingUsers)
 
                                 if isLoadingUsers {
                                     ProgressView()
@@ -113,6 +128,7 @@ struct AnnouncementComposerView: View {
                             .padding(8)
                             .background(Color(UIColor.tertiarySystemFill))
                             .cornerRadius(8)
+                            .opacity(availableUsers.isEmpty && !isLoadingUsers ? 0.5 : 1.0)
 
                             // Selected users chips
                             if !selectedUsers.isEmpty {
@@ -168,7 +184,7 @@ struct AnnouncementComposerView: View {
                                         }
                                     }
 
-                                    if filteredUsers.isEmpty {
+                                    if filteredUsers.isEmpty && !availableUsers.isEmpty {
                                         HStack {
                                             Image(systemName: "person.slash")
                                                 .foregroundColor(.secondary)
@@ -177,6 +193,29 @@ struct AnnouncementComposerView: View {
                                         }
                                         .font(.subheadline)
                                         .padding(.vertical, 8)
+                                    }
+
+                                    // Manual entry option
+                                    if filteredUsers.isEmpty || availableUsers.isEmpty {
+                                        Button {
+                                            let trimmedText = userSearchText.trimmingCharacters(in: .whitespaces)
+                                            if !trimmedText.isEmpty && !selectedUsers.contains(trimmedText) {
+                                                selectedUsers.append(trimmedText)
+                                                userSearchText = ""
+                                            }
+                                        } label: {
+                                            HStack {
+                                                Image(systemName: "plus.circle.fill")
+                                                    .foregroundColor(.green)
+                                                Text("Add \"\(userSearchText)\" manually")
+                                                    .foregroundColor(.primary)
+                                                Spacer()
+                                            }
+                                            .padding(.vertical, 8)
+                                            .padding(.horizontal, 12)
+                                            .background(Color.green.opacity(0.1))
+                                            .cornerRadius(8)
+                                        }
                                     }
                                 }
                                 .padding(.vertical, 4)
@@ -355,14 +394,12 @@ struct AnnouncementComposerView: View {
                 try await database.save(record)
                 print("✅ Saved to CloudKit successfully")
 
-                // Send push notification if enabled
+                // Push notifications are handled automatically via CloudKit subscriptions
+                // When this announcement is saved, CloudKit will send a silent push to all subscribed users
                 if sendPushNotification {
+                    print("📡 CloudKit will send push notifications to all subscribed users")
                     if isCritical {
-                        print("🚨 Sending critical notification...")
-                        await sendCriticalNotification(for: announcement)
-                    } else {
-                        print("🔔 Sending regular notification...")
-                        await sendRegularNotification(for: announcement)
+                        print("   Note: Critical alerts are sent through CloudKit subscriptions")
                     }
                 }
 
@@ -385,26 +422,6 @@ struct AnnouncementComposerView: View {
                 }
             }
         }
-    }
-
-    private func sendCriticalNotification(for announcement: Announcement) async {
-        print("🚨 Sending critical alert via NotificationManager...")
-        await NotificationManager.shared.sendCriticalAlert(
-            title: announcement.title,
-            body: announcement.body,
-            sound: .defaultCritical
-        )
-        print("✅ Critical alert sent: \(announcement.title)")
-    }
-
-    private func sendRegularNotification(for announcement: Announcement) async {
-        print("🔔 Sending regular notification via NotificationManager...")
-        await NotificationManager.shared.sendNotification(
-            title: announcement.title,
-            body: announcement.body,
-            category: announcement.category.rawValue.uppercased()
-        )
-        print("✅ Regular notification sent: \(announcement.title)")
     }
 
     private func fetchAvailableUsers() async {
@@ -443,13 +460,14 @@ struct AnnouncementComposerView: View {
                 return name
             }
 
-            // Remove duplicates and sort
-            let uniqueUsers = Array(Set(users)).sorted()
+            // Remove duplicates and sort (case-insensitive sort for better UX)
+            let uniqueUsers = Array(Set(users)).sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
 
             await MainActor.run {
                 self.availableUsers = uniqueUsers
                 self.isLoadingUsers = false
                 print("✅ Loaded \(uniqueUsers.count) users for autocomplete")
+                print("   Users: \(uniqueUsers.joined(separator: ", "))")
                 if uniqueUsers.isEmpty {
                     print("⚠️ No users with names found! UserPreferences may have empty userName fields")
                 }
@@ -457,8 +475,9 @@ struct AnnouncementComposerView: View {
         } catch {
             await MainActor.run {
                 self.isLoadingUsers = false
+                print("❌ Failed to fetch users: \(error.localizedDescription)")
+                print("   Full error: \(error)")
             }
-            print("❌ Failed to fetch users: \(error.localizedDescription)")
         }
     }
 }
