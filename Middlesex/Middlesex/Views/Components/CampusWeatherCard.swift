@@ -10,6 +10,25 @@ import WeatherKit
 
 struct CampusWeatherCard: View {
     @ObservedObject var weatherManager: CampusWeatherManager
+    @StateObject private var preferences = UserPreferences.shared
+
+    private func formatTemp(_ celsius: Double) -> String {
+        if preferences.prefersCelsius {
+            return "\(Int(celsius))°C"
+        } else {
+            let fahrenheit = (celsius * 9/5) + 32
+            return "\(Int(fahrenheit))°F"
+        }
+    }
+
+    private func formatWind(_ speedKph: Double) -> String {
+        if preferences.prefersCelsius {
+            return "\(Int(speedKph)) km/h"
+        } else {
+            let mph = speedKph * 0.621371
+            return "\(Int(mph)) mph"
+        }
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -45,7 +64,7 @@ struct CampusWeatherCard: View {
                 HStack(spacing: 20) {
                     // Temperature
                     VStack(alignment: .leading) {
-                        Text("\(Int(weather.currentWeather.temperature.value))°")
+                        Text(formatTemp(weather.currentWeather.temperature.value))
                             .font(.system(size: 48, weight: .bold))
                         Text(weather.currentWeather.condition.description)
                             .font(.subheadline)
@@ -59,7 +78,7 @@ struct CampusWeatherCard: View {
                         HStack {
                             Image(systemName: "wind")
                                 .foregroundColor(.secondary)
-                            Text("\(Int(weather.currentWeather.wind.speed.value)) mph")
+                            Text(formatWind(weather.currentWeather.wind.speed.value))
                                 .font(.subheadline)
                         }
 
@@ -73,7 +92,7 @@ struct CampusWeatherCard: View {
                         HStack {
                             Image(systemName: "thermometer")
                                 .foregroundColor(.secondary)
-                            Text("Feels like \(Int(weather.currentWeather.apparentTemperature.value))°")
+                            Text("Feels like \(formatTemp(weather.currentWeather.apparentTemperature.value))")
                                 .font(.subheadline)
                         }
                     }

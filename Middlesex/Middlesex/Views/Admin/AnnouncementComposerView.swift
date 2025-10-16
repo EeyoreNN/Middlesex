@@ -17,6 +17,9 @@ struct AnnouncementComposerView: View {
     @State private var message = ""
     @State private var category: Announcement.Category = .general
     @State private var priority: Announcement.Priority = .medium
+    @State private var targetAudience: Announcement.TargetAudience = .everyone
+    @State private var specificUserNames = "" // Comma-separated names
+    @State private var sendPushNotification = false
     @State private var isCritical = false
     @State private var isPinned = false
     @State private var expiryDays = 7
@@ -67,6 +70,29 @@ struct AnnouncementComposerView: View {
                     .pickerStyle(.segmented)
                 }
 
+                Section("Target Audience") {
+                    Picker("Send to", selection: $targetAudience) {
+                        ForEach(Announcement.TargetAudience.allCases, id: \.self) { audience in
+                            HStack {
+                                Image(systemName: audience.icon)
+                                Text(audience.displayName)
+                            }
+                            .tag(audience)
+                        }
+                    }
+                    .pickerStyle(.menu)
+
+                    if targetAudience == .specific {
+                        TextField("Enter names (comma-separated)", text: $specificUserNames)
+                            .textContentType(.name)
+                            .autocapitalization(.words)
+
+                        Text("Enter names separated by commas. Example: John Smith, Jane Doe")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+
                 Section("Settings") {
                     Toggle(isOn: $isPinned) {
                         HStack {
@@ -75,19 +101,33 @@ struct AnnouncementComposerView: View {
                         }
                     }
 
-                    Toggle(isOn: $isCritical) {
+                    Toggle(isOn: $sendPushNotification) {
                         HStack {
-                            Image(systemName: "exclamationmark.triangle.fill")
-                                .foregroundColor(.red)
+                            Image(systemName: "bell.fill")
                             VStack(alignment: .leading) {
-                                Text("Critical Alert")
-                                Text("Bypasses Do Not Disturb")
+                                Text("Send Push Notification")
+                                Text("Alert users with a notification")
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                             }
                         }
                     }
-                    .tint(.red)
+
+                    if sendPushNotification {
+                        Toggle(isOn: $isCritical) {
+                            HStack {
+                                Image(systemName: "exclamationmark.triangle.fill")
+                                    .foregroundColor(.red)
+                                VStack(alignment: .leading) {
+                                    Text("Make it Critical")
+                                    Text("Bypasses Do Not Disturb & Focus modes")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+                            }
+                        }
+                        .tint(.red)
+                    }
 
                     Picker("Expires in", selection: $expiryDays) {
                         Text("1 day").tag(1)
@@ -98,12 +138,12 @@ struct AnnouncementComposerView: View {
                     }
                 }
 
-                if isCritical {
+                if sendPushNotification && isCritical {
                     Section {
                         HStack {
                             Image(systemName: "exclamationmark.shield.fill")
                                 .foregroundColor(.red)
-                            Text("Use critical alerts sparingly for emergencies, safety alerts, or urgent schedule changes only.")
+                            Text("Critical alerts bypass Do Not Disturb. Use only for emergencies, safety alerts, or urgent schedule changes.")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         }
@@ -152,7 +192,16 @@ struct AnnouncementComposerView: View {
     }
 
     var canSend: Bool {
-        !title.isEmpty && !message.isEmpty && preferences.isAdmin
+        guard !title.isEmpty && !message.isEmpty && preferences.isAdmin else {
+            return false
+        }
+
+        // If targeting specific people, require at least one name
+        if targetAudience == .specific && specificUserNames.trimmingCharacters(in: .whitespaces).isEmpty {
+            return false
+        }
+
+        return true
     }
 
     private func sendAnnouncement() {
@@ -165,6 +214,11 @@ struct AnnouncementComposerView: View {
         errorMessage = nil
         print("📤 Starting announcement send...")
 
+        // Parse specific user names if audience is .specific
+        let targetUserNames: [String]? = targetAudience == .specific && !specificUserNames.isEmpty
+            ? specificUserNames.components(separatedBy: ",").map { $0.trimmingCharacters(in: .whitespaces) }
+            : nil
+
         let announcement = Announcement(
             title: title,
             body: message,
@@ -173,7 +227,9 @@ struct AnnouncementComposerView: View {
             category: category,
             author: preferences.userName.isEmpty ? "Admin" : preferences.userName,
             isPinned: isPinned,
-            isCritical: isCritical
+            isCritical: isCritical,
+            targetAudience: targetAudience,
+            targetUserNames: targetUserNames
         )
 
         print("📋 Announcement created: \(announcement.title)")
@@ -189,10 +245,15 @@ struct AnnouncementComposerView: View {
                 try await database.save(record)
                 print("✅ Saved to CloudKit successfully")
 
-                // Send critical alert if marked as critical
-                if isCritical {
-                    print("🚨 Sending critical notification...")
-                    await sendCriticalNotification(for: announcement)
+                // Send push notification if enabled
+                if sendPushNotification {
+                    if isCritical {
+                        print("🚨 Sending critical notification...")
+                        await sendCriticalNotification(for: announcement)
+                    } else {
+                        print("🔔 Sending regular notification...")
+                        await sendRegularNotification(for: announcement)
+                    }
                 }
 
                 // Refresh announcements list
@@ -224,6 +285,16 @@ struct AnnouncementComposerView: View {
             sound: .defaultCritical
         )
         print("✅ Critical alert sent: \(announcement.title)")
+    }
+
+    private func sendRegularNotification(for announcement: Announcement) async {
+        print("🔔 Sending regular notification via NotificationManager...")
+        await NotificationManager.shared.sendNotification(
+            title: announcement.title,
+            body: announcement.body,
+            category: announcement.category.rawValue.uppercased()
+        )
+        print("✅ Regular notification sent: \(announcement.title)")
     }
 }
 

@@ -123,8 +123,8 @@ struct SignInView: View {
                 // Mark as signed in
                 preferences.isSignedIn = true
 
-                // Load notification preferences from CloudKit
-                preferences.loadNotificationPreferencesFromCloudKit()
+                // Load user data and schedules from CloudKit
+                preferences.loadUserDataFromCloudKit()
 
                 print("✅ Sign in successful: \(preferences.userIdentifier)")
                 print("📧 Email: \(preferences.userEmail)")

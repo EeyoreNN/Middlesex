@@ -16,32 +16,41 @@ class UserPreferences: ObservableObject {
     @AppStorage("isSignedIn") var isSignedIn: Bool = false
     @AppStorage("userIdentifier") var userIdentifier: String = "" // Apple User ID
     @AppStorage("userEmail") var userEmail: String = ""
-    @AppStorage("userName") var userName: String = ""
-    @AppStorage("userGrade") var userGrade: String = ""
+    @AppStorage("userName") var userName: String = "" {
+        didSet { syncUserDataToCloudKit() }
+    }
+    @AppStorage("userGrade") var userGrade: String = "" {
+        didSet { syncUserDataToCloudKit() }
+    }
+    @AppStorage("prefersCelsius") var prefersCelsius: Bool = false {
+        didSet { syncUserDataToCloudKit() }
+    }
     @AppStorage("isAdmin") var isAdmin: Bool = false
     @AppStorage("hasPermanentAdminAccess") var hasPermanentAdminAccess: Bool = false
 
     // Notification preferences
     @AppStorage("notificationsNextClass") var notificationsNextClass: Bool = true {
-        didSet { syncNotificationPreferencesToCloudKit() }
+        didSet { syncUserDataToCloudKit() }
     }
     @AppStorage("notificationsSportsUpdates") var notificationsSportsUpdates: Bool = true {
-        didSet { syncNotificationPreferencesToCloudKit() }
+        didSet { syncUserDataToCloudKit() }
     }
     @AppStorage("notificationsAnnouncements") var notificationsAnnouncements: Bool = true {
-        didSet { syncNotificationPreferencesToCloudKit() }
+        didSet { syncUserDataToCloudKit() }
     }
 
     // Store user's class schedule as JSON
     @Published var redWeekSchedule: [Int: UserClass] = [:] {
         didSet {
             saveSchedule(redWeekSchedule, key: "redWeekSchedule")
+            syncSchedulesToCloudKit()
         }
     }
 
     @Published var whiteWeekSchedule: [Int: UserClass] = [:] {
         didSet {
             saveSchedule(whiteWeekSchedule, key: "whiteWeekSchedule")
+            syncSchedulesToCloudKit()
         }
     }
 
@@ -175,32 +184,75 @@ class UserPreferences: ObservableObject {
 
     // MARK: - CloudKit Sync
 
-    func loadNotificationPreferencesFromCloudKit() {
-        guard !userIdentifier.isEmpty else { return }
+    func loadUserDataFromCloudKit() {
+        guard !userIdentifier.isEmpty else {
+            print("⚠️ Cannot load from CloudKit - no userIdentifier")
+            return
+        }
 
         Task {
             let cloudKitManager = CloudKitManager.shared
-            if let preferences = await cloudKitManager.fetchUserPreferences(userId: userIdentifier) {
+            print("📥 Loading user data from CloudKit for user: \(userIdentifier)")
+
+            if let userData = await cloudKitManager.fetchUserData(userId: userIdentifier) {
                 await MainActor.run {
-                    // Temporarily disable syncing while loading
-                    self.notificationsNextClass = preferences.notificationsNextClass
-                    self.notificationsSportsUpdates = preferences.notificationsSportsUpdates
-                    self.notificationsAnnouncements = preferences.notificationsAnnouncements
+                    print("✅ Loaded user data from CloudKit")
+                    self.userName = userData.userName
+                    self.userGrade = userData.userGrade
+                    self.prefersCelsius = userData.prefersCelsius
+                    self.notificationsNextClass = userData.notificationsNextClass
+                    self.notificationsSportsUpdates = userData.notificationsSportsUpdates
+                    self.notificationsAnnouncements = userData.notificationsAnnouncements
+                }
+
+                // Load schedules
+                if let schedules = await cloudKitManager.fetchUserSchedules(userId: userIdentifier) {
+                    await MainActor.run {
+                        print("✅ Loaded schedules from CloudKit")
+                        self.redWeekSchedule = schedules.redWeek
+                        self.whiteWeekSchedule = schedules.whiteWeek
+                    }
                 }
             }
         }
     }
 
-    private func syncNotificationPreferencesToCloudKit() {
-        guard !userIdentifier.isEmpty else { return }
+    private func syncUserDataToCloudKit() {
+        guard !userIdentifier.isEmpty else {
+            print("⚠️ Cannot sync to CloudKit - no userIdentifier")
+            return
+        }
 
         Task {
             let cloudKitManager = CloudKitManager.shared
-            await cloudKitManager.saveUserPreferences(
+            print("📤 Syncing user data to CloudKit for user: \(userIdentifier)")
+
+            await cloudKitManager.saveUserData(
                 userId: userIdentifier,
+                userName: userName,
+                userGrade: userGrade,
+                prefersCelsius: prefersCelsius,
                 notificationsNextClass: notificationsNextClass,
                 notificationsSportsUpdates: notificationsSportsUpdates,
                 notificationsAnnouncements: notificationsAnnouncements
+            )
+        }
+    }
+
+    private func syncSchedulesToCloudKit() {
+        guard !userIdentifier.isEmpty else {
+            print("⚠️ Cannot sync schedules to CloudKit - no userIdentifier")
+            return
+        }
+
+        Task {
+            let cloudKitManager = CloudKitManager.shared
+            print("📤 Syncing schedules to CloudKit for user: \(userIdentifier)")
+
+            await cloudKitManager.saveUserSchedules(
+                userId: userIdentifier,
+                redWeek: redWeekSchedule,
+                whiteWeek: whiteWeekSchedule
             )
         }
     }

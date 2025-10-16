@@ -291,8 +291,19 @@ class CloudKitManager: ObservableObject {
                 }
             }
 
-            print("✅ Successfully parsed \(items.count) announcements")
-            self.announcements = items
+            // Filter announcements by target audience based on user's grade and name
+            let userGrade = UserPreferences.shared.userGrade
+            let userName = UserPreferences.shared.userName
+            let filteredItems = items.filter { announcement in
+                let isTargeted = announcement.isTargetedTo(userGrade: userGrade, userName: userName)
+                if !isTargeted {
+                    print("🎯 Filtering out '\(announcement.title)' - not targeted to \(userGrade)/\(userName)")
+                }
+                return isTargeted
+            }
+
+            print("✅ Successfully parsed \(items.count) announcements, \(filteredItems.count) targeted to user")
+            self.announcements = filteredItems
         } catch {
             print("❌ CloudKit query error: \(error)")
             errorMessage = "Failed to fetch announcements: \(error.localizedDescription)"
@@ -462,32 +473,57 @@ class CloudKitManager: ObservableObject {
 
     // MARK: - User Preferences
 
-    func fetchUserPreferences(userId: String) async -> (notificationsNextClass: Bool, notificationsSportsUpdates: Bool, notificationsAnnouncements: Bool)? {
+    // MARK: - User Data Sync
+
+    struct UserData {
+        let userName: String
+        let userGrade: String
+        let prefersCelsius: Bool
+        let notificationsNextClass: Bool
+        let notificationsSportsUpdates: Bool
+        let notificationsAnnouncements: Bool
+    }
+
+    struct UserSchedules {
+        let redWeek: [Int: UserClass]
+        let whiteWeek: [Int: UserClass]
+    }
+
+    func fetchUserData(userId: String) async -> UserData? {
         let predicate = NSPredicate(format: "userId == %@", userId)
-        let query = CKQuery(recordType: "UserPreferences", predicate: predicate)
+        let query = CKQuery(recordType: "UserData", predicate: predicate)
 
         do {
             let results = try await publicDatabase.records(matching: query)
             if let firstResult = results.matchResults.first,
                let record = try? firstResult.1.get() {
+                let userName = record["userName"] as? String ?? ""
+                let userGrade = record["userGrade"] as? String ?? ""
+                let prefersCelsius = (record["prefersCelsius"] as? Int64 ?? 0) == 1
                 let nextClass = (record["notificationsNextClass"] as? Int64 ?? 1) == 1
                 let sports = (record["notificationsSportsUpdates"] as? Int64 ?? 1) == 1
                 let announcements = (record["notificationsAnnouncements"] as? Int64 ?? 1) == 1
 
-                print("✅ Loaded user preferences from CloudKit")
-                return (nextClass, sports, announcements)
+                print("✅ Loaded user data from CloudKit")
+                return UserData(
+                    userName: userName,
+                    userGrade: userGrade,
+                    prefersCelsius: prefersCelsius,
+                    notificationsNextClass: nextClass,
+                    notificationsSportsUpdates: sports,
+                    notificationsAnnouncements: announcements
+                )
             }
         } catch {
-            print("❌ Failed to fetch user preferences: \(error)")
+            print("❌ Failed to fetch user data: \(error)")
         }
 
         return nil
     }
 
-    func saveUserPreferences(userId: String, notificationsNextClass: Bool, notificationsSportsUpdates: Bool, notificationsAnnouncements: Bool) async {
-        // Check if preferences already exist
+    func saveUserData(userId: String, userName: String, userGrade: String, prefersCelsius: Bool, notificationsNextClass: Bool, notificationsSportsUpdates: Bool, notificationsAnnouncements: Bool) async {
         let predicate = NSPredicate(format: "userId == %@", userId)
-        let query = CKQuery(recordType: "UserPreferences", predicate: predicate)
+        let query = CKQuery(recordType: "UserData", predicate: predicate)
 
         do {
             let results = try await publicDatabase.records(matching: query)
@@ -495,25 +531,86 @@ class CloudKitManager: ObservableObject {
             let record: CKRecord
             if let firstResult = results.matchResults.first,
                let existingRecord = try? firstResult.1.get() {
-                // Update existing record
                 record = existingRecord
-                print("📝 Updating existing user preferences in CloudKit")
+                print("📝 Updating existing user data in CloudKit")
             } else {
-                // Create new record
-                record = CKRecord(recordType: "UserPreferences")
+                record = CKRecord(recordType: "UserData")
                 record["userId"] = userId as CKRecordValue
-                print("📝 Creating new user preferences in CloudKit")
+                print("📝 Creating new user data in CloudKit")
             }
 
+            record["userName"] = userName as CKRecordValue
+            record["userGrade"] = userGrade as CKRecordValue
+            record["prefersCelsius"] = (prefersCelsius ? 1 : 0) as CKRecordValue
             record["notificationsNextClass"] = (notificationsNextClass ? 1 : 0) as CKRecordValue
             record["notificationsSportsUpdates"] = (notificationsSportsUpdates ? 1 : 0) as CKRecordValue
             record["notificationsAnnouncements"] = (notificationsAnnouncements ? 1 : 0) as CKRecordValue
             record["updatedAt"] = Date() as CKRecordValue
 
             try await publicDatabase.save(record)
-            print("✅ Saved user preferences to CloudKit")
+            print("✅ Saved user data to CloudKit")
         } catch {
-            print("❌ Failed to save user preferences: \(error)")
+            print("❌ Failed to save user data: \(error)")
+        }
+    }
+
+    func fetchUserSchedules(userId: String) async -> UserSchedules? {
+        let predicate = NSPredicate(format: "userId == %@", userId)
+        let query = CKQuery(recordType: "UserSchedule", predicate: predicate)
+
+        do {
+            let results = try await publicDatabase.records(matching: query)
+            if let firstResult = results.matchResults.first,
+               let record = try? firstResult.1.get() {
+                let redWeekData = record["redWeek"] as? Data
+                let whiteWeekData = record["whiteWeek"] as? Data
+
+                let redWeek = try redWeekData.flatMap { try JSONDecoder().decode([Int: UserClass].self, from: $0) } ?? [:]
+                let whiteWeek = try whiteWeekData.flatMap { try JSONDecoder().decode([Int: UserClass].self, from: $0) } ?? [:]
+
+                print("✅ Loaded user schedules from CloudKit")
+                return UserSchedules(redWeek: redWeek, whiteWeek: whiteWeek)
+            }
+        } catch {
+            print("❌ Failed to fetch user schedules: \(error)")
+        }
+
+        return nil
+    }
+
+    func saveUserSchedules(userId: String, redWeek: [Int: UserClass], whiteWeek: [Int: UserClass]) async {
+        let predicate = NSPredicate(format: "userId == %@", userId)
+        let query = CKQuery(recordType: "UserSchedule", predicate: predicate)
+
+        do {
+            let results = try await publicDatabase.records(matching: query)
+
+            let record: CKRecord
+            if let firstResult = results.matchResults.first,
+               let existingRecord = try? firstResult.1.get() {
+                record = existingRecord
+                print("📝 Updating existing user schedule in CloudKit")
+            } else {
+                record = CKRecord(recordType: "UserSchedule")
+                record["userId"] = userId as CKRecordValue
+                print("📝 Creating new user schedule in CloudKit")
+            }
+
+            let redWeekData = try? JSONEncoder().encode(redWeek)
+            let whiteWeekData = try? JSONEncoder().encode(whiteWeek)
+
+            if let redData = redWeekData {
+                record["redWeek"] = redData as CKRecordValue
+            }
+            if let whiteData = whiteWeekData {
+                record["whiteWeek"] = whiteData as CKRecordValue
+            }
+            record["updatedAt"] = Date() as CKRecordValue
+
+            try await publicDatabase.save(record)
+            print("✅ Saved user schedules to CloudKit")
+        } catch {
+            print("❌ Failed to save user schedules: \(error)")
         }
     }
 

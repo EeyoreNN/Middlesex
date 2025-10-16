@@ -12,6 +12,7 @@ struct OnboardingView: View {
     @State private var currentPage = 0
     @State private var name = ""
     @State private var grade = ""
+    @State private var prefersCelsius = false
     @State private var showingCameraImport = false
     @State private var showingManualBuilder = false
     @State private var redWeekSchedule: [String: [BlockTime]] = [:]
@@ -25,7 +26,7 @@ struct OnboardingView: View {
             VStack {
                 // Progress indicator
                 HStack(spacing: 8) {
-                    ForEach(0..<4) { index in
+                    ForEach(0..<5) { index in
                         Circle()
                             .fill(currentPage == index ? Color.white : Color.white.opacity(0.3))
                             .frame(width: 8, height: 8)
@@ -40,8 +41,11 @@ struct OnboardingView: View {
                     UserInfoScreen(name: $name, grade: $grade)
                         .tag(1)
 
-                    ScheduleSetupIntroScreen()
+                    TemperaturePreferenceScreen(prefersCelsius: $prefersCelsius)
                         .tag(2)
+
+                    ScheduleSetupIntroScreen()
+                        .tag(3)
 
                     ScheduleImportMethodScreen(
                         onCameraImport: {
@@ -51,7 +55,7 @@ struct OnboardingView: View {
                             showingManualBuilder = true
                         }
                     )
-                    .tag(3)
+                    .tag(4)
 
                     // Removed duplicate SimplifiedScheduleBuilder from TabView
                     // Users access it through the sheet from page 3
@@ -73,6 +77,7 @@ struct OnboardingView: View {
     private func completeOnboarding() {
         preferences.userName = name
         preferences.userGrade = grade
+        preferences.prefersCelsius = prefersCelsius
         preferences.completeOnboarding() // Use new method that sets version
     }
 }
@@ -176,6 +181,94 @@ struct UserInfoScreen: View {
                 }
             }
             .padding(.horizontal, 20)
+
+            Spacer()
+
+            Text("Swipe to continue")
+                .font(.caption)
+                .foregroundColor(.white.opacity(0.7))
+                .padding(.bottom, 40)
+        }
+    }
+}
+
+struct TemperaturePreferenceScreen: View {
+    @Binding var prefersCelsius: Bool
+
+    var body: some View {
+        VStack(spacing: 30) {
+            Spacer()
+
+            Image(systemName: "thermometer.medium")
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: 80, height: 80)
+                .foregroundColor(.white)
+
+            Text("Temperature Preference")
+                .font(.title.bold())
+                .foregroundColor(.white)
+
+            Text("How do you prefer to see temperature?")
+                .font(.body)
+                .foregroundColor(.white.opacity(0.9))
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 40)
+
+            HStack(spacing: 16) {
+                Button {
+                    withAnimation(.spring(response: 0.3)) {
+                        prefersCelsius = false
+                    }
+                } label: {
+                    VStack(spacing: 12) {
+                        Image(systemName: "thermometer.sun.fill")
+                            .font(.system(size: 40))
+                        Text("Fahrenheit")
+                            .font(.headline)
+                        Text("°F")
+                            .font(.title2.bold())
+                    }
+                    .foregroundColor(prefersCelsius == false ? MiddlesexTheme.primaryRed : .white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 28)
+                    .background(
+                        RoundedRectangle(cornerRadius: 16)
+                            .fill(prefersCelsius == false ? Color.white : Color.white.opacity(0.2))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16)
+                            .stroke(Color.white.opacity(prefersCelsius == false ? 0.3 : 0.1), lineWidth: 2)
+                    )
+                }
+
+                Button {
+                    withAnimation(.spring(response: 0.3)) {
+                        prefersCelsius = true
+                    }
+                } label: {
+                    VStack(spacing: 12) {
+                        Image(systemName: "thermometer.snowflake")
+                            .font(.system(size: 40))
+                        Text("Celsius")
+                            .font(.headline)
+                        Text("°C")
+                            .font(.title2.bold())
+                    }
+                    .foregroundColor(prefersCelsius == true ? MiddlesexTheme.primaryRed : .white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 28)
+                    .background(
+                        RoundedRectangle(cornerRadius: 16)
+                            .fill(prefersCelsius == true ? Color.white : Color.white.opacity(0.2))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16)
+                            .stroke(Color.white.opacity(prefersCelsius == true ? 0.3 : 0.1), lineWidth: 2)
+                    )
+                }
+            }
+            .padding(.horizontal, 30)
 
             Spacer()
 

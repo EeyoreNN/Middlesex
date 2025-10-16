@@ -21,8 +21,44 @@ struct Announcement: Identifiable, Hashable {
     let isActive: Bool
     let isPinned: Bool
     let isCritical: Bool
+    let targetAudience: TargetAudience
+    let targetUserNames: [String]? // Specific user names (when targetAudience is .specific)
     let createdAt: Date
     let updatedAt: Date
+
+    enum TargetAudience: String, CaseIterable {
+        case everyone = "everyone"
+        case students = "students"
+        case faculty = "faculty"
+        case ninthGrade = "9th_grade"
+        case tenthGrade = "10th_grade"
+        case eleventhGrade = "11th_grade"
+        case twelfthGrade = "12th_grade"
+        case specific = "specific"
+
+        var displayName: String {
+            switch self {
+            case .everyone: return "Everyone"
+            case .students: return "All Students"
+            case .faculty: return "Faculty & Staff"
+            case .ninthGrade: return "9th Grade"
+            case .tenthGrade: return "10th Grade"
+            case .eleventhGrade: return "11th Grade"
+            case .twelfthGrade: return "12th Grade"
+            case .specific: return "Specific People"
+            }
+        }
+
+        var icon: String {
+            switch self {
+            case .everyone: return "person.3.fill"
+            case .students: return "studentdesk"
+            case .faculty: return "briefcase.fill"
+            case .ninthGrade, .tenthGrade, .eleventhGrade, .twelfthGrade: return "person.fill"
+            case .specific: return "person.crop.circle.badge.checkmark"
+            }
+        }
+    }
 
     enum Priority: String, CaseIterable {
         case high = "high"
@@ -91,6 +127,18 @@ struct Announcement: Identifiable, Hashable {
         self.isActive = (record["isActive"] as? Int64 ?? 0) == 1
         self.isPinned = (record["isPinned"] as? Int64 ?? 0) == 1
         self.isCritical = (record["isCritical"] as? Int64 ?? 0) == 1
+
+        // Default to everyone for backwards compatibility with existing records
+        let targetAudienceString = record["targetAudience"] as? String ?? "everyone"
+        self.targetAudience = TargetAudience(rawValue: targetAudienceString) ?? .everyone
+
+        // Parse target user names (stored as comma-separated string)
+        if let userNamesString = record["targetUserNames"] as? String, !userNamesString.isEmpty {
+            self.targetUserNames = userNamesString.components(separatedBy: ",").map { $0.trimmingCharacters(in: .whitespaces) }
+        } else {
+            self.targetUserNames = nil
+        }
+
         self.createdAt = createdAt
         self.updatedAt = updatedAt
     }
@@ -108,6 +156,8 @@ struct Announcement: Identifiable, Hashable {
          isActive: Bool = true,
          isPinned: Bool = false,
          isCritical: Bool = false,
+         targetAudience: TargetAudience = .everyone,
+         targetUserNames: [String]? = nil,
          createdAt: Date = Date(),
          updatedAt: Date = Date()) {
         self.id = id
@@ -122,6 +172,8 @@ struct Announcement: Identifiable, Hashable {
         self.isActive = isActive
         self.isPinned = isPinned
         self.isCritical = isCritical
+        self.targetAudience = targetAudience
+        self.targetUserNames = targetUserNames
         self.createdAt = createdAt
         self.updatedAt = updatedAt
     }
@@ -143,6 +195,11 @@ struct Announcement: Identifiable, Hashable {
         record["isActive"] = (isActive ? 1 : 0) as CKRecordValue
         record["isPinned"] = (isPinned ? 1 : 0) as CKRecordValue
         record["isCritical"] = (isCritical ? 1 : 0) as CKRecordValue
+        record["targetAudience"] = targetAudience.rawValue as CKRecordValue
+        // Store target user names as comma-separated string
+        if let targetUserNames = targetUserNames, !targetUserNames.isEmpty {
+            record["targetUserNames"] = targetUserNames.joined(separator: ",") as CKRecordValue
+        }
         record["createdAt"] = createdAt as CKRecordValue
         record["updatedAt"] = updatedAt as CKRecordValue
         return record
@@ -150,5 +207,30 @@ struct Announcement: Identifiable, Hashable {
 
     var isCurrentlyActive: Bool {
         isActive && Date() >= publishDate && Date() <= expiryDate
+    }
+
+    // Check if this announcement is targeted to a specific user
+    func isTargetedTo(userGrade: String, userName: String) -> Bool {
+        switch targetAudience {
+        case .everyone:
+            return true
+        case .students:
+            // All grade levels are students
+            return ["9th", "10th", "11th", "12th"].contains(userGrade)
+        case .faculty:
+            return userGrade == "Faculty" || userGrade == "Staff"
+        case .ninthGrade:
+            return userGrade == "9th"
+        case .tenthGrade:
+            return userGrade == "10th"
+        case .eleventhGrade:
+            return userGrade == "11th"
+        case .twelfthGrade:
+            return userGrade == "12th"
+        case .specific:
+            // Check if user name is in the target list (case-insensitive)
+            guard let targetNames = targetUserNames else { return false }
+            return targetNames.contains { $0.lowercased() == userName.lowercased() }
+        }
     }
 }

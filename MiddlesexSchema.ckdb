@@ -56,6 +56,8 @@ DEFINE SCHEMA
         isPinned        INT64 QUERYABLE SORTABLE,
         priority        STRING QUERYABLE,
         publishDate     TIMESTAMP QUERYABLE SORTABLE,
+        targetAudience  STRING QUERYABLE,
+        targetUserNames STRING,
         title           STRING,
         updatedAt       TIMESTAMP,
         GRANT READ, CREATE, WRITE TO "_icloud"
@@ -290,18 +292,35 @@ DEFINE SCHEMA
         GRANT READ TO "_world"
     );
 
-    RECORD TYPE UserPreferences (
+    RECORD TYPE UserData (
         "___createTime"              TIMESTAMP,
         "___createdBy"               REFERENCE,
         "___etag"                    STRING,
         "___modTime"                 TIMESTAMP,
         "___modifiedBy"              REFERENCE,
         "___recordID"                REFERENCE QUERYABLE,
-        userId                       STRING QUERYABLE,
+        userId                       STRING QUERYABLE SORTABLE,
+        userName                     STRING,
+        userGrade                    STRING,
+        prefersCelsius               INT64,
         notificationsNextClass       INT64,
         notificationsSportsUpdates   INT64,
         notificationsAnnouncements   INT64,
         updatedAt                    TIMESTAMP,
+        GRANT READ, CREATE, WRITE TO "_creator"
+    );
+
+    RECORD TYPE UserSchedule (
+        "___createTime" TIMESTAMP,
+        "___createdBy"  REFERENCE,
+        "___etag"       STRING,
+        "___modTime"    TIMESTAMP,
+        "___modifiedBy" REFERENCE,
+        "___recordID"   REFERENCE QUERYABLE,
+        userId          STRING QUERYABLE SORTABLE,
+        redWeek         BYTES,
+        whiteWeek       BYTES,
+        updatedAt       TIMESTAMP,
         GRANT READ, CREATE, WRITE TO "_creator"
     );
 

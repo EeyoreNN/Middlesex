@@ -106,6 +106,30 @@ class NotificationManager: NSObject, ObservableObject, UNUserNotificationCenterD
         }
     }
 
+    // Send regular notification (respects Do Not Disturb and Focus modes)
+    func sendNotification(title: String, body: String, category: String = "ANNOUNCEMENT") async {
+        let content = UNMutableNotificationContent()
+        content.title = title
+        content.body = body
+        content.sound = .default
+        content.interruptionLevel = .timeSensitive // Important but respects Focus modes
+        content.categoryIdentifier = category
+        content.badge = 1
+
+        let request = UNNotificationRequest(
+            identifier: UUID().uuidString,
+            content: content,
+            trigger: nil // Deliver immediately
+        )
+
+        do {
+            try await UNUserNotificationCenter.current().add(request)
+            print("🔔 Notification sent: \(title)")
+        } catch {
+            print("❌ Failed to send notification: \(error)")
+        }
+    }
+
     // MARK: - UNUserNotificationCenterDelegate
 
     // Handle notification when app is in foreground
