@@ -421,7 +421,7 @@ struct AnnouncementComposerView: View {
             // Query UserPreferences records to get all user names
             let predicate = NSPredicate(value: true)
             let query = CKQuery(recordType: "UserPreferences", predicate: predicate)
-            query.sortDescriptors = [NSSortDescriptor(key: "userName", ascending: true)]
+            // Sort in code instead of CloudKit to avoid schema requirements
 
             let results = try await database.records(matching: query)
 

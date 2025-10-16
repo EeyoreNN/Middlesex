@@ -555,43 +555,41 @@ class CloudKitManager: ObservableObject {
     }
 
     func fetchUserSchedules(userId: String) async -> UserSchedules? {
-        let predicate = NSPredicate(format: "userId == %@", userId)
-        let query = CKQuery(recordType: "UserSchedule", predicate: predicate)
-
         do {
-            let results = try await publicDatabase.records(matching: query)
-            if let firstResult = results.matchResults.first,
-               let record = try? firstResult.1.get() {
-                let redWeekData = record["redWeek"] as? Data
-                let whiteWeekData = record["whiteWeek"] as? Data
+            // Use the same deterministic record ID
+            let recordName = "schedule_\(userId)"
+            let recordID = CKRecord.ID(recordName: recordName)
 
-                let redWeek = try redWeekData.flatMap { try JSONDecoder().decode([Int: UserClass].self, from: $0) } ?? [:]
-                let whiteWeek = try whiteWeekData.flatMap { try JSONDecoder().decode([Int: UserClass].self, from: $0) } ?? [:]
+            let record = try await publicDatabase.record(for: recordID)
 
-                print("✅ Loaded user schedules from CloudKit")
-                return UserSchedules(redWeek: redWeek, whiteWeek: whiteWeek)
-            }
+            let redWeekData = record["redWeek"] as? Data
+            let whiteWeekData = record["whiteWeek"] as? Data
+
+            let redWeek = try redWeekData.flatMap { try JSONDecoder().decode([Int: UserClass].self, from: $0) } ?? [:]
+            let whiteWeek = try whiteWeekData.flatMap { try JSONDecoder().decode([Int: UserClass].self, from: $0) } ?? [:]
+
+            print("✅ Loaded user schedules from CloudKit")
+            return UserSchedules(redWeek: redWeek, whiteWeek: whiteWeek)
         } catch {
-            print("❌ Failed to fetch user schedules: \(error)")
+            print("❌ Failed to fetch user schedules: \(error.localizedDescription)")
+            return nil
         }
-
-        return nil
     }
 
     func saveUserSchedules(userId: String, redWeek: [Int: UserClass], whiteWeek: [Int: UserClass]) async {
-        let predicate = NSPredicate(format: "userId == %@", userId)
-        let query = CKQuery(recordType: "UserSchedule", predicate: predicate)
-
         do {
-            let results = try await publicDatabase.records(matching: query)
+            // Create a unique record ID based on userId to ensure we update the same record
+            let recordName = "schedule_\(userId)"
+            let recordID = CKRecord.ID(recordName: recordName)
 
+            // Try to fetch existing record, or create new one
             let record: CKRecord
-            if let firstResult = results.matchResults.first,
-               let existingRecord = try? firstResult.1.get() {
-                record = existingRecord
+            do {
+                record = try await publicDatabase.record(for: recordID)
                 print("📝 Updating existing user schedule in CloudKit")
-            } else {
-                record = CKRecord(recordType: "UserSchedule")
+            } catch {
+                // Record doesn't exist, create new one
+                record = CKRecord(recordType: "UserSchedule", recordID: recordID)
                 record["userId"] = userId as CKRecordValue
                 print("📝 Creating new user schedule in CloudKit")
             }
@@ -609,6 +607,35 @@ class CloudKitManager: ObservableObject {
 
             try await publicDatabase.save(record)
             print("✅ Saved user schedules to CloudKit")
+        } catch let error as CKError {
+            // Handle "record already exists" race condition
+            if error.code == .serverRecordChanged {
+                print("⚠️ Record was modified by another process, retrying...")
+                // Retry once by fetching the latest version
+                do {
+                    let recordName = "schedule_\(userId)"
+                    let recordID = CKRecord.ID(recordName: recordName)
+                    let existingRecord = try await publicDatabase.record(for: recordID)
+
+                    let redWeekData = try? JSONEncoder().encode(redWeek)
+                    let whiteWeekData = try? JSONEncoder().encode(whiteWeek)
+
+                    if let redData = redWeekData {
+                        existingRecord["redWeek"] = redData as CKRecordValue
+                    }
+                    if let whiteData = whiteWeekData {
+                        existingRecord["whiteWeek"] = whiteData as CKRecordValue
+                    }
+                    existingRecord["updatedAt"] = Date() as CKRecordValue
+
+                    try await publicDatabase.save(existingRecord)
+                    print("✅ Saved user schedules to CloudKit (retry)")
+                } catch {
+                    print("❌ Failed to save user schedules on retry: \(error)")
+                }
+            } else {
+                print("❌ Failed to save user schedules: \(error)")
+            }
         } catch {
             print("❌ Failed to save user schedules: \(error)")
         }

@@ -299,14 +299,14 @@ DEFINE SCHEMA
         "___modTime"                 TIMESTAMP,
         "___modifiedBy"              REFERENCE,
         "___recordID"                REFERENCE QUERYABLE,
-        userId                       STRING QUERYABLE SORTABLE,
-        userName                     STRING,
-        userGrade                    STRING,
-        prefersCelsius               INT64,
+        notificationsAnnouncements   INT64,
         notificationsNextClass       INT64,
         notificationsSportsUpdates   INT64,
-        notificationsAnnouncements   INT64,
+        prefersCelsius               INT64,
         updatedAt                    TIMESTAMP,
+        userGrade                    STRING,
+        userId                       STRING QUERYABLE SORTABLE,
+        userName                     STRING,
         GRANT READ, CREATE, WRITE TO "_creator"
     );
 
@@ -317,11 +317,11 @@ DEFINE SCHEMA
         "___modTime"    TIMESTAMP,
         "___modifiedBy" REFERENCE,
         "___recordID"   REFERENCE QUERYABLE,
-        userId          STRING QUERYABLE SORTABLE,
         redWeek         BYTES,
-        whiteWeek       BYTES,
         updatedAt       TIMESTAMP,
-        GRANT READ, CREATE, WRITE TO "_creator"
+        userId          STRING QUERYABLE SORTABLE,
+        whiteWeek       BYTES,
+        GRANT READ, CREATE, WRITE TO "_icloud"
     );
 
     RECORD TYPE Users (

@@ -281,7 +281,7 @@ struct BlockSelectionView: View {
             // Query for approved classes only
             let predicate = NSPredicate(format: "isApproved == %d", 1)
             let query = CKQuery(recordType: "CustomClass", predicate: predicate)
-            query.sortDescriptors = [NSSortDescriptor(key: "className", ascending: true)]
+            // Don't sort in CloudKit - sort in code instead to avoid schema requirements
 
             let results = try await database.records(matching: query)
 
@@ -289,6 +289,7 @@ struct BlockSelectionView: View {
                 guard let record = try? result.get() else { return nil }
                 return CustomClass(from: record)
             }
+            .sorted { $0.className < $1.className } // Sort alphabetically in code
 
             await MainActor.run {
                 self.approvedCustomClasses = classes
