@@ -292,7 +292,7 @@ DEFINE SCHEMA
         GRANT READ TO "_world"
     );
 
-    RECORD TYPE UserData (
+    RECORD TYPE UserPreferences (
         "___createTime"              TIMESTAMP,
         "___createdBy"               REFERENCE,
         "___etag"                    STRING,

@@ -491,7 +491,7 @@ class CloudKitManager: ObservableObject {
 
     func fetchUserData(userId: String) async -> UserData? {
         let predicate = NSPredicate(format: "userId == %@", userId)
-        let query = CKQuery(recordType: "UserData", predicate: predicate)
+        let query = CKQuery(recordType: "UserPreferences", predicate: predicate)
 
         do {
             let results = try await publicDatabase.records(matching: query)
@@ -523,7 +523,7 @@ class CloudKitManager: ObservableObject {
 
     func saveUserData(userId: String, userName: String, userGrade: String, prefersCelsius: Bool, notificationsNextClass: Bool, notificationsSportsUpdates: Bool, notificationsAnnouncements: Bool) async {
         let predicate = NSPredicate(format: "userId == %@", userId)
-        let query = CKQuery(recordType: "UserData", predicate: predicate)
+        let query = CKQuery(recordType: "UserPreferences", predicate: predicate)
 
         do {
             let results = try await publicDatabase.records(matching: query)
@@ -532,11 +532,11 @@ class CloudKitManager: ObservableObject {
             if let firstResult = results.matchResults.first,
                let existingRecord = try? firstResult.1.get() {
                 record = existingRecord
-                print("📝 Updating existing user data in CloudKit")
+                print("📝 Updating existing user preferences in CloudKit")
             } else {
-                record = CKRecord(recordType: "UserData")
+                record = CKRecord(recordType: "UserPreferences")
                 record["userId"] = userId as CKRecordValue
-                print("📝 Creating new user data in CloudKit")
+                print("📝 Creating new user preferences in CloudKit")
             }
 
             record["userName"] = userName as CKRecordValue

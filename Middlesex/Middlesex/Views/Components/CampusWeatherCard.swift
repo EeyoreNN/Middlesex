@@ -35,7 +35,7 @@ struct CampusWeatherCard: View {
             HStack {
                 Image(systemName: "cloud.sun.fill")
                     .font(.title2)
-                    .foregroundColor(.orange)
+                    .foregroundColor(MiddlesexTheme.primaryRed)
                 Text("Campus Weather")
                     .font(.headline)
                 Spacer()

@@ -87,12 +87,11 @@ struct WelcomeScreen: View {
         VStack(spacing: 30) {
             Spacer()
 
-            // School logo placeholder (replace with actual logo)
-            Image(systemName: "building.columns.fill")
+            // Middlesex School logo
+            Image("MiddlesexShield")
                 .resizable()
                 .aspectRatio(contentMode: .fit)
                 .frame(width: 120, height: 120)
-                .foregroundColor(.white)
 
             Text("Welcome to")
                 .font(.title2)
@@ -365,9 +364,19 @@ struct ScheduleImportMethodScreen: View {
                             .clipShape(Circle())
 
                         VStack(alignment: .leading, spacing: 4) {
-                            Text("AI Camera Import")
-                                .font(.headline)
-                                .foregroundColor(.white)
+                            HStack(spacing: 8) {
+                                Text("AI Camera Import")
+                                    .font(.headline)
+                                    .foregroundColor(.white)
+
+                                Text("BETA")
+                                    .font(.caption2.bold())
+                                    .foregroundColor(MiddlesexTheme.primaryRed)
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 2)
+                                    .background(Color.white)
+                                    .cornerRadius(4)
+                            }
 
                             Text("Take photos of your schedules")
                                 .font(.caption)

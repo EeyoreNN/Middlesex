@@ -18,7 +18,11 @@ struct AnnouncementComposerView: View {
     @State private var category: Announcement.Category = .general
     @State private var priority: Announcement.Priority = .medium
     @State private var targetAudience: Announcement.TargetAudience = .everyone
-    @State private var specificUserNames = "" // Comma-separated names
+    @State private var specificUserNames = "" // Comma-separated names (deprecated, kept for compatibility)
+    @State private var selectedUsers: [String] = [] // Array of selected user names
+    @State private var userSearchText = "" // Search text for filtering users
+    @State private var availableUsers: [String] = [] // All users from CloudKit
+    @State private var isLoadingUsers = false
     @State private var sendPushNotification = false
     @State private var isCritical = false
     @State private var isPinned = false
@@ -83,13 +87,105 @@ struct AnnouncementComposerView: View {
                     .pickerStyle(.menu)
 
                     if targetAudience == .specific {
-                        TextField("Enter names (comma-separated)", text: $specificUserNames)
-                            .textContentType(.name)
-                            .autocapitalization(.words)
+                        VStack(alignment: .leading, spacing: 12) {
+                            // Search field
+                            HStack {
+                                Image(systemName: "magnifyingglass")
+                                    .foregroundColor(.secondary)
+                                TextField("Search for users...", text: $userSearchText)
+                                    .textContentType(.name)
+                                    .autocapitalization(.words)
 
-                        Text("Enter names separated by commas. Example: John Smith, Jane Doe")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
+                                if isLoadingUsers {
+                                    ProgressView()
+                                        .scaleEffect(0.8)
+                                }
+
+                                if !userSearchText.isEmpty {
+                                    Button {
+                                        userSearchText = ""
+                                    } label: {
+                                        Image(systemName: "xmark.circle.fill")
+                                            .foregroundColor(.secondary)
+                                    }
+                                }
+                            }
+                            .padding(8)
+                            .background(Color(UIColor.tertiarySystemFill))
+                            .cornerRadius(8)
+
+                            // Selected users chips
+                            if !selectedUsers.isEmpty {
+                                ScrollView(.horizontal, showsIndicators: false) {
+                                    HStack(spacing: 8) {
+                                        ForEach(selectedUsers, id: \.self) { user in
+                                            HStack(spacing: 6) {
+                                                Text(user)
+                                                    .font(.subheadline)
+
+                                                Button {
+                                                    selectedUsers.removeAll { $0 == user }
+                                                } label: {
+                                                    Image(systemName: "xmark.circle.fill")
+                                                        .font(.caption)
+                                                }
+                                            }
+                                            .padding(.horizontal, 12)
+                                            .padding(.vertical, 6)
+                                            .background(MiddlesexTheme.primaryRed.opacity(0.15))
+                                            .foregroundColor(MiddlesexTheme.primaryRed)
+                                            .cornerRadius(16)
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Filtered user suggestions
+                            if !userSearchText.isEmpty {
+                                VStack(alignment: .leading, spacing: 8) {
+                                    ForEach(filteredUsers, id: \.self) { user in
+                                        Button {
+                                            if !selectedUsers.contains(user) {
+                                                selectedUsers.append(user)
+                                                userSearchText = ""
+                                            }
+                                        } label: {
+                                            HStack {
+                                                Image(systemName: "person.circle.fill")
+                                                    .foregroundColor(MiddlesexTheme.primaryRed)
+                                                Text(user)
+                                                    .foregroundColor(.primary)
+                                                Spacer()
+                                                if selectedUsers.contains(user) {
+                                                    Image(systemName: "checkmark")
+                                                        .foregroundColor(MiddlesexTheme.primaryRed)
+                                                }
+                                            }
+                                            .padding(.vertical, 8)
+                                            .padding(.horizontal, 12)
+                                            .background(Color(UIColor.secondarySystemFill))
+                                            .cornerRadius(8)
+                                        }
+                                    }
+
+                                    if filteredUsers.isEmpty {
+                                        HStack {
+                                            Image(systemName: "person.slash")
+                                                .foregroundColor(.secondary)
+                                            Text("No users found")
+                                                .foregroundColor(.secondary)
+                                        }
+                                        .font(.subheadline)
+                                        .padding(.vertical, 8)
+                                    }
+                                }
+                                .padding(.vertical, 4)
+                            }
+
+                            Text("Selected: \(selectedUsers.count) user\(selectedUsers.count == 1 ? "" : "s")")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
                     }
                 }
 
@@ -188,7 +284,21 @@ struct AnnouncementComposerView: View {
             } message: {
                 Text("Your announcement has been published successfully.")
             }
+            .task {
+                await fetchAvailableUsers()
+            }
         }
+    }
+
+    var filteredUsers: [String] {
+        guard !userSearchText.isEmpty else { return [] }
+
+        return availableUsers.filter { user in
+            user.localizedCaseInsensitiveContains(userSearchText)
+        }
+        .sorted()
+        .prefix(10) // Limit to 10 suggestions
+        .map { $0 }
     }
 
     var canSend: Bool {
@@ -196,8 +306,8 @@ struct AnnouncementComposerView: View {
             return false
         }
 
-        // If targeting specific people, require at least one name
-        if targetAudience == .specific && specificUserNames.trimmingCharacters(in: .whitespaces).isEmpty {
+        // If targeting specific people, require at least one selected user
+        if targetAudience == .specific && selectedUsers.isEmpty {
             return false
         }
 
@@ -214,9 +324,9 @@ struct AnnouncementComposerView: View {
         errorMessage = nil
         print("📤 Starting announcement send...")
 
-        // Parse specific user names if audience is .specific
-        let targetUserNames: [String]? = targetAudience == .specific && !specificUserNames.isEmpty
-            ? specificUserNames.components(separatedBy: ",").map { $0.trimmingCharacters(in: .whitespaces) }
+        // Use selected users if audience is .specific
+        let targetUserNames: [String]? = targetAudience == .specific && !selectedUsers.isEmpty
+            ? selectedUsers
             : nil
 
         let announcement = Announcement(
@@ -295,6 +405,49 @@ struct AnnouncementComposerView: View {
             category: announcement.category.rawValue.uppercased()
         )
         print("✅ Regular notification sent: \(announcement.title)")
+    }
+
+    private func fetchAvailableUsers() async {
+        await MainActor.run {
+            isLoadingUsers = true
+        }
+
+        do {
+            let container = CKContainer(identifier: "iCloud.com.nicholasnoon.Middlesex")
+            let database = container.publicCloudDatabase
+
+            print("👥 Fetching users from CloudKit...")
+
+            // Query UserPreferences records to get all user names
+            let predicate = NSPredicate(value: true)
+            let query = CKQuery(recordType: "UserPreferences", predicate: predicate)
+            query.sortDescriptors = [NSSortDescriptor(key: "userName", ascending: true)]
+
+            let results = try await database.records(matching: query)
+
+            let users = results.matchResults.compactMap { _, result -> String? in
+                guard let record = try? result.get(),
+                      let userName = record["userName"] as? String,
+                      !userName.isEmpty else {
+                    return nil
+                }
+                return userName
+            }
+
+            // Remove duplicates and sort
+            let uniqueUsers = Array(Set(users)).sorted()
+
+            await MainActor.run {
+                self.availableUsers = uniqueUsers
+                self.isLoadingUsers = false
+                print("✅ Loaded \(uniqueUsers.count) users for autocomplete")
+            }
+        } catch {
+            await MainActor.run {
+                self.isLoadingUsers = false
+            }
+            print("❌ Failed to fetch users: \(error.localizedDescription)")
+        }
     }
 }
 
