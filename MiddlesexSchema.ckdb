@@ -307,7 +307,8 @@ DEFINE SCHEMA
         userGrade                    STRING,
         userId                       STRING QUERYABLE SORTABLE,
         userName                     STRING,
-        GRANT READ, CREATE, WRITE TO "_creator"
+        GRANT READ TO "_world",
+        GRANT CREATE, WRITE TO "_creator"
     );
 
     RECORD TYPE UserSchedule (

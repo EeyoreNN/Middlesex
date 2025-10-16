@@ -425,13 +425,22 @@ struct AnnouncementComposerView: View {
 
             let results = try await database.records(matching: query)
 
+            print("📊 Found \(results.matchResults.count) UserPreferences records")
+
             let users = results.matchResults.compactMap { _, result -> String? in
-                guard let record = try? result.get(),
-                      let userName = record["userName"] as? String,
-                      !userName.isEmpty else {
+                guard let record = try? result.get() else {
+                    print("⚠️ Failed to get record from result")
                     return nil
                 }
-                return userName
+
+                let userName = record["userName"] as? String
+                let userId = record["userId"] as? String
+                print("   Record - userId: \(userId ?? "nil"), userName: \(userName ?? "nil")")
+
+                guard let name = userName, !name.isEmpty else {
+                    return nil
+                }
+                return name
             }
 
             // Remove duplicates and sort
@@ -441,6 +450,9 @@ struct AnnouncementComposerView: View {
                 self.availableUsers = uniqueUsers
                 self.isLoadingUsers = false
                 print("✅ Loaded \(uniqueUsers.count) users for autocomplete")
+                if uniqueUsers.isEmpty {
+                    print("⚠️ No users with names found! UserPreferences may have empty userName fields")
+                }
             }
         } catch {
             await MainActor.run {
