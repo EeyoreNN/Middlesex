@@ -217,45 +217,13 @@ struct AnnouncementComposerView: View {
     }
 
     private func sendCriticalNotification(for announcement: Announcement) async {
-        // Request critical alert authorization
-        let center = UNUserNotificationCenter.current()
-
-        do {
-            // Request authorization with critical alert option
-            let granted = try await center.requestAuthorization(options: [.alert, .sound, .criticalAlert])
-
-            guard granted else {
-                print("⚠️ Critical alert authorization not granted")
-                return
-            }
-
-            // Create notification content
-            let content = UNMutableNotificationContent()
-            content.title = announcement.title
-            content.body = announcement.body
-            content.categoryIdentifier = announcement.category.rawValue
-
-            // Mark as critical alert (bypasses Do Not Disturb)
-            content.interruptionLevel = .critical
-            content.sound = .defaultCritical
-
-            // Add badge
-            content.badge = 1
-
-            // Trigger immediately
-            let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
-            let request = UNNotificationRequest(
-                identifier: announcement.id,
-                content: content,
-                trigger: trigger
-            )
-
-            try await center.add(request)
-            print("✅ Critical alert scheduled: \(announcement.title)")
-
-        } catch {
-            print("❌ Error sending critical alert: \(error.localizedDescription)")
-        }
+        print("🚨 Sending critical alert via NotificationManager...")
+        await NotificationManager.shared.sendCriticalAlert(
+            title: announcement.title,
+            body: announcement.body,
+            sound: .defaultCritical
+        )
+        print("✅ Critical alert sent: \(announcement.title)")
     }
 }
 

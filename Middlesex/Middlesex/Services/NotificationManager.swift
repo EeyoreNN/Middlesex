@@ -43,20 +43,31 @@ class NotificationManager: NSObject, ObservableObject, UNUserNotificationCenterD
             options: []
         )
 
+        let emergencyCategory = UNNotificationCategory(
+            identifier: "EMERGENCY",
+            actions: [],
+            intentIdentifiers: [],
+            options: [.customDismissAction]
+        )
+
         UNUserNotificationCenter.current().setNotificationCategories([
             nextClassCategory,
             sportsCategory,
-            announcementCategory
+            announcementCategory,
+            emergencyCategory
         ])
 
         print("✅ Notification categories configured")
     }
 
-    // Request notification permissions
+    // Request notification permissions (including Critical Alerts)
     func requestPermissions() async -> Bool {
         do {
-            let granted = try await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge])
-            print(granted ? "✅ Notification permissions granted" : "❌ Notification permissions denied")
+            // Request standard notifications plus Critical Alerts
+            let granted = try await UNUserNotificationCenter.current().requestAuthorization(
+                options: [.alert, .sound, .badge, .criticalAlert]
+            )
+            print(granted ? "✅ Notification permissions granted (including Critical Alerts)" : "❌ Notification permissions denied")
 
             if granted {
                 // Register for remote notifications on main thread
@@ -69,6 +80,29 @@ class NotificationManager: NSObject, ObservableObject, UNUserNotificationCenterD
         } catch {
             print("❌ Error requesting notification permissions: \(error)")
             return false
+        }
+    }
+
+    // Send critical alert (bypasses Do Not Disturb)
+    func sendCriticalAlert(title: String, body: String, sound: UNNotificationSound = .defaultCritical) async {
+        let content = UNMutableNotificationContent()
+        content.title = title
+        content.body = body
+        content.sound = sound
+        content.interruptionLevel = .critical
+        content.categoryIdentifier = "EMERGENCY"
+
+        let request = UNNotificationRequest(
+            identifier: UUID().uuidString,
+            content: content,
+            trigger: nil // Deliver immediately
+        )
+
+        do {
+            try await UNUserNotificationCenter.current().add(request)
+            print("🚨 Critical alert sent: \(title)")
+        } catch {
+            print("❌ Failed to send critical alert: \(error)")
         }
     }
 
