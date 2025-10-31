@@ -20,53 +20,56 @@ struct XBlockDaySelector: View {
     private let allDays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(spacing: 20) {
             // Header
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("X Block Days - \(weekType.displayName) Week")
-                        .font(.headline)
+            VStack(spacing: 8) {
+                Text("Select X Block Days")
+                    .font(.headline)
+                    .foregroundColor(.white)
 
-                    Text("Select which days this class uses \(blockLetter)x blocks")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-
-                Spacer()
-
-                if isLoadingCrowdData {
-                    ProgressView()
-                        .scaleEffect(0.8)
-                }
+                Text("Which days does this class meet for \(blockLetter)x blocks?")
+                    .font(.subheadline)
+                    .foregroundColor(.white.opacity(0.8))
+                    .multilineTextAlignment(.center)
             }
 
             // Crowd-sourced suggestion banner
             if let crowdDays = crowdSourcedDays, crowdDays != selectedDays {
-                HStack(spacing: 12) {
-                    Image(systemName: "person.3.fill")
-                        .foregroundColor(.blue)
-
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Suggested by students")
-                            .font(.subheadline.bold())
-                            .foregroundColor(.primary)
-
-                        Text("\(crowdDays.joined(separator: ", "))")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-
-                    Spacer()
-
-                    Button("Use") {
+                Button {
+                    withAnimation(.spring(response: 0.3)) {
                         selectedDays = crowdDays
                     }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
+                } label: {
+                    HStack(spacing: 12) {
+                        Image(systemName: "person.3.fill")
+                            .font(.title3)
+                            .foregroundColor(.white)
+
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Suggested by other students")
+                                .font(.subheadline.bold())
+                                .foregroundColor(.white)
+
+                            Text("\(crowdDays.joined(separator: ", "))")
+                                .font(.caption)
+                                .foregroundColor(.white.opacity(0.8))
+                        }
+
+                        Spacer()
+
+                        Text("Use")
+                            .font(.headline)
+                            .foregroundColor(MiddlesexTheme.primaryRed)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 8)
+                            .background(Color.white)
+                            .cornerRadius(8)
+                    }
+                    .padding(16)
+                    .background(Color.white.opacity(0.2))
+                    .cornerRadius(12)
                 }
-                .padding(12)
-                .background(Color.blue.opacity(0.1))
-                .cornerRadius(8)
+                .buttonStyle(.plain)
             }
 
             // Day selection buttons
@@ -81,7 +84,9 @@ struct XBlockDaySelector: View {
                         isSelected: selectedDays.contains(day),
                         isStandard: isStandardDay(day),
                         action: {
-                            toggleDay(day)
+                            withAnimation(.spring(response: 0.3)) {
+                                toggleDay(day)
+                            }
                         }
                     )
                 }
@@ -95,13 +100,24 @@ struct XBlockDaySelector: View {
 
             if !standardDays.isEmpty {
                 HStack(spacing: 8) {
-                    Image(systemName: "info.circle")
+                    Image(systemName: "info.circle.fill")
                         .font(.caption)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(.white.opacity(0.6))
 
-                    Text("Standard schedule: \(standardDays.joined(separator: ", "))")
+                    Text("Typical schedule: \(standardDays.joined(separator: ", "))")
                         .font(.caption)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(.white.opacity(0.7))
+                }
+            }
+
+            if isLoadingCrowdData {
+                HStack(spacing: 8) {
+                    ProgressView()
+                        .tint(.white)
+                        .scaleEffect(0.8)
+                    Text("Loading suggestions...")
+                        .font(.caption)
+                        .foregroundColor(.white.opacity(0.7))
                 }
             }
         }
@@ -152,33 +168,31 @@ struct DayToggleButton: View {
 
     var body: some View {
         Button(action: action) {
-            VStack(spacing: 4) {
+            VStack(spacing: 8) {
                 Text(day.prefix(3))
-                    .font(.subheadline.bold())
-                    .foregroundColor(isSelected ? .white : .primary)
+                    .font(.headline)
+                    .foregroundColor(isSelected ? MiddlesexTheme.primaryRed : .white)
 
                 if isStandard {
                     Circle()
-                        .fill(isSelected ? Color.white.opacity(0.5) : Color.gray.opacity(0.3))
-                        .frame(width: 4, height: 4)
+                        .fill(isSelected ? MiddlesexTheme.primaryRed.opacity(0.6) : Color.white.opacity(0.5))
+                        .frame(width: 5, height: 5)
                 } else {
                     Spacer()
-                        .frame(height: 4)
+                        .frame(height: 5)
                 }
             }
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 12)
+            .padding(.vertical, 16)
             .background(
-                isSelected
-                    ? MiddlesexTheme.primaryRed
-                    : Color.gray.opacity(0.15)
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(isSelected ? Color.white : Color.white.opacity(0.2))
             )
-            .cornerRadius(8)
             .overlay(
-                RoundedRectangle(cornerRadius: 8)
+                RoundedRectangle(cornerRadius: 12)
                     .stroke(
-                        isStandard && !isSelected ? Color.gray.opacity(0.4) : Color.clear,
-                        lineWidth: 1.5
+                        Color.white.opacity(isSelected ? 0.3 : 0.1),
+                        lineWidth: 1
                     )
             )
         }

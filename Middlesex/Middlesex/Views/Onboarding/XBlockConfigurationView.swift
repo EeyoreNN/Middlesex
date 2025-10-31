@@ -27,96 +27,165 @@ struct XBlockConfigurationView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            if let block = currentBlock,
-               let schoolClass = selectedClasses[block],
-               let teacher = selectedTeachers[block],
-               schoolClass.name != "Free Block" {
+        ZStack {
+            MiddlesexTheme.redGradient
+                .ignoresSafeArea()
 
-                // Progress
-                ProgressView(
-                    value: Double(currentClassIndex * 2 + (currentWeekType == .red ? 0 : 1)),
-                    total: Double(sortedBlocks.count * 2)
-                )
-                .tint(MiddlesexTheme.primaryRed)
-                .padding()
-                .background(Color.clear)
+            VStack(spacing: 0) {
+                if let block = currentBlock,
+                   let schoolClass = selectedClasses[block],
+                   let teacher = selectedTeachers[block],
+                   schoolClass.name != "Free Block" {
 
-                ScrollView {
-                    VStack(spacing: 24) {
-                        // Header
-                        VStack(spacing: 12) {
-                            Text("\(block) Block X Days")
-                                .font(.title2.bold())
+                    // Progress indicator (matching onboarding style)
+                    HStack(spacing: 8) {
+                        ForEach(0..<(sortedBlocks.count * 2)) { index in
+                            let currentStep = currentClassIndex * 2 + (currentWeekType == .red ? 0 : 1)
+                            Circle()
+                                .fill(currentStep == index ? Color.white : Color.white.opacity(0.3))
+                                .frame(width: 8, height: 8)
+                        }
+                    }
+                    .padding(.top, 40)
+
+                    ScrollView {
+                        VStack(spacing: 30) {
+                            Spacer()
+                                .frame(height: 20)
+
+                            // Icon
+                            Image(systemName: "calendar.badge.clock")
+                                .resizable()
+                                .aspectRatio(contentMode: .fit)
+                                .frame(width: 70, height: 70)
                                 .foregroundColor(.white)
 
-                            Text(schoolClass.name)
-                                .font(.headline)
-                                .foregroundColor(.white.opacity(0.9))
+                            // Header
+                            VStack(spacing: 8) {
+                                Text("\(block) Block")
+                                    .font(.title.bold())
+                                    .foregroundColor(.white)
 
-                            Text("with \(teacher.name)")
-                                .font(.subheadline)
-                                .foregroundColor(.white.opacity(0.7))
-                        }
-                        .padding()
+                                Text(schoolClass.name)
+                                    .font(.title3)
+                                    .foregroundColor(.white.opacity(0.9))
 
-                        // Week type selector
-                        Picker("Week", selection: $currentWeekType) {
-                            Text("Red Week").tag(ClassSchedule.WeekType.red)
-                            Text("White Week").tag(ClassSchedule.WeekType.white)
-                        }
-                        .pickerStyle(.segmented)
-                        .padding(.horizontal)
+                                Text("with \(teacher.name)")
+                                    .font(.body)
+                                    .foregroundColor(.white.opacity(0.8))
+                            }
 
-                        // X Block day selector
-                        XBlockDaySelector(
-                            className: schoolClass.name,
-                            teacherName: teacher.name,
-                            blockLetter: block,
-                            weekType: currentWeekType,
-                            selectedDays: binding(for: block, weekType: currentWeekType)
-                        )
-                        .padding(.horizontal)
+                            // Week type selector (styled to match onboarding)
+                            VStack(spacing: 12) {
+                                Text("Which week?")
+                                    .font(.headline)
+                                    .foregroundColor(.white)
 
-                        // Navigation buttons
-                        HStack(spacing: 16) {
-                            if currentClassIndex > 0 || currentWeekType == .white {
-                                Button {
-                                    goBack()
-                                } label: {
-                                    Label("Back", systemImage: "chevron.left")
+                                HStack(spacing: 12) {
+                                    Button {
+                                        withAnimation(.spring(response: 0.3)) {
+                                            currentWeekType = .red
+                                        }
+                                    } label: {
+                                        Text("Red Week")
+                                            .font(.headline)
+                                            .foregroundColor(currentWeekType == .red ? MiddlesexTheme.primaryRed : .white)
+                                            .frame(maxWidth: .infinity)
+                                            .padding(.vertical, 14)
+                                            .background(
+                                                RoundedRectangle(cornerRadius: 12)
+                                                    .fill(currentWeekType == .red ? Color.white : Color.white.opacity(0.2))
+                                            )
+                                            .overlay(
+                                                RoundedRectangle(cornerRadius: 12)
+                                                    .stroke(Color.white.opacity(currentWeekType == .red ? 0.3 : 0.1), lineWidth: 1)
+                                            )
+                                    }
+
+                                    Button {
+                                        withAnimation(.spring(response: 0.3)) {
+                                            currentWeekType = .white
+                                        }
+                                    } label: {
+                                        Text("White Week")
+                                            .font(.headline)
+                                            .foregroundColor(currentWeekType == .white ? MiddlesexTheme.primaryRed : .white)
+                                            .frame(maxWidth: .infinity)
+                                            .padding(.vertical, 14)
+                                            .background(
+                                                RoundedRectangle(cornerRadius: 12)
+                                                    .fill(currentWeekType == .white ? Color.white : Color.white.opacity(0.2))
+                                            )
+                                            .overlay(
+                                                RoundedRectangle(cornerRadius: 12)
+                                                    .stroke(Color.white.opacity(currentWeekType == .white ? 0.3 : 0.1), lineWidth: 1)
+                                            )
+                                    }
+                                }
+                            }
+                            .padding(.horizontal, 30)
+
+                            // X Block day selector
+                            XBlockDaySelector(
+                                className: schoolClass.name,
+                                teacherName: teacher.name,
+                                blockLetter: block,
+                                weekType: currentWeekType,
+                                selectedDays: binding(for: block, weekType: currentWeekType)
+                            )
+                            .padding(.horizontal, 30)
+
+                            // Navigation buttons
+                            HStack(spacing: 16) {
+                                if currentClassIndex > 0 || currentWeekType == .white {
+                                    Button {
+                                        withAnimation(.spring(response: 0.3)) {
+                                            goBack()
+                                        }
+                                    } label: {
+                                        HStack {
+                                            Image(systemName: "chevron.left")
+                                            Text("Back")
+                                        }
+                                        .font(.headline)
                                         .frame(maxWidth: .infinity)
-                                        .padding()
+                                        .padding(.vertical, 16)
                                         .background(Color.white.opacity(0.2))
                                         .foregroundColor(.white)
                                         .cornerRadius(12)
+                                    }
                                 }
-                            }
 
-                            Button {
-                                goNext()
-                            } label: {
-                                Label(isLast ? "Done" : "Next", systemImage: isLast ? "checkmark" : "chevron.right")
+                                Button {
+                                    withAnimation(.spring(response: 0.3)) {
+                                        goNext()
+                                    }
+                                } label: {
+                                    HStack {
+                                        Text(isLast ? "Done" : "Next")
+                                        Image(systemName: isLast ? "checkmark" : "chevron.right")
+                                    }
+                                    .font(.headline)
                                     .frame(maxWidth: .infinity)
-                                    .padding()
+                                    .padding(.vertical, 16)
                                     .background(Color.white)
                                     .foregroundColor(MiddlesexTheme.primaryRed)
                                     .cornerRadius(12)
+                                }
                             }
+                            .padding(.horizontal, 30)
+                            .padding(.bottom, 40)
                         }
-                        .padding(.horizontal)
-                        .padding(.bottom, 20)
                     }
+                } else {
+                    // Skip to complete if no regular classes
+                    Color.clear
+                        .onAppear {
+                            onComplete()
+                        }
                 }
-            } else {
-                // Skip to complete if no regular classes
-                Color.clear
-                    .onAppear {
-                        onComplete()
-                    }
             }
         }
-        .background(MiddlesexTheme.redGradient.ignoresSafeArea())
     }
 
     private var isLast: Bool {

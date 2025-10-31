@@ -1,0 +1,71 @@
+APP STORE DESCRIPTION FOR MIDDLESEX APP
+=========================================
+
+SUBTITLE (30 characters max):
+Your Middlesex School app
+
+
+PROMOTIONAL TEXT (170 characters max - optional):
+Get the latest schedules, menus, announcements, and sports scores for Middlesex School. Your unofficial Middlesex companion.
+
+
+FULL DESCRIPTION:
+Stay connected with everything happening at Middlesex School with the unofficial Middlesex app.
+
+FEATURES
+
+Schedule Management
+• View your personalized class schedule
+• Import schedules using AI-powered photo scanning
+• Track X-block days and special schedules
+• Request custom classes
+
+Dining Hall Menus
+• Browse daily breakfast, lunch, and dinner menus
+• Filter by dietary preferences (vegetarian, vegan)
+• View allergen information
+• Check what's being served before you head to the dining hall
+
+School Announcements
+• Receive important school-wide announcements
+• Get grade-specific notifications
+• Stay updated on events, meetings, and deadlines
+• Never miss important information
+
+Sports & Athletics
+• Follow your favorite Middlesex teams
+• Get real-time score updates with Live Activities
+• View upcoming games and results
+• Track athletic events across all sports
+
+Campus Weather
+• Check current weather conditions on campus
+• Plan your day with accurate Concord, MA weather
+
+ABOUT THIS APP
+
+This is an independent app developed by Nicholas Noon. It is NOT an official Middlesex School application and is not affiliated with or endorsed by Middlesex School.
+
+All data is securely stored using Apple's CloudKit service with end-to-end encryption. Your privacy is our priority.
+
+SUPPORT
+
+Questions or feedback? Contact nnoon@mxschool.edu
+
+For more information, visit our privacy policy and support pages.
+
+
+KEYWORDS:
+middlesex,schedule,school,dining,menu,announcements,sports,scores,calendar,classes,high school,student,concord
+
+
+COPYRIGHT:
+2025 Nicholas Noon
+
+
+SUPPORT URL:
+https://eeyorenn.github.io/Middlesex-Privacy-Policy/support.html
+
+
+PRIVACY POLICY URL:
+https://eeyorenn.github.io/Middlesex-Privacy-Policy/
