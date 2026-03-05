@@ -34,30 +34,16 @@ class SportsLiveActivityManager: ObservableObject {
     }
 
     func follow(event: SportsEvent, userPreferences: UserPreferences) async throws {
-        print("🎯 Starting Live Activity for event: \(event.id)")
-        print("   Sport: \(event.sport.rawValue)")
-        print("   Opponent: \(event.opponent)")
-
         guard let sportType = SportsActivityAttributes.SportType(eventSport: event.sport) else {
-            print("⚠️ Unsupported sport for Live Activity: \(event.sport.rawValue)")
             return
         }
 
-        print("   ✅ Sport type supported: \(sportType.displayName)")
-
         let authInfo = ActivityAuthorizationInfo()
-        print("   Live Activities enabled: \(authInfo.areActivitiesEnabled)")
-        print("   Live Activities authorization status: \(authInfo.areActivitiesEnabled ? "enabled" : "disabled")")
-
         guard authInfo.areActivitiesEnabled else {
-            print("❌ Live Activities are disabled in Settings")
             throw NSError(domain: "SportsLiveActivityManager", code: 1, userInfo: [NSLocalizedDescriptionKey: "Live Activities are disabled in Settings."])
         }
 
-        if let existing = activeActivities[event.id] {
-            print("ℹ️ Already following event \(existing.id)")
-            return
-        }
+        if activeActivities[event.id] != nil { return }
 
         var initialState = SportsActivityAttributes.ContentState(status: .upcoming, updatedAt: Date())
 
@@ -87,34 +73,18 @@ class SportsLiveActivityManager: ObservableObject {
             reporterName: initialState.reporterName
         )
 
-        // Set staleDate to 4 hours from now or 4 hours after game starts, whichever is later
         let now = Date()
         let gameEndEstimate = event.eventDate.addingTimeInterval(4 * 60 * 60)
         let staleDate = max(now.addingTimeInterval(4 * 60 * 60), gameEndEstimate)
 
-        print("   📝 Creating Live Activity...")
-        print("   Attributes: \(attributes.eventName)")
-        print("   Initial state: \(initialState.status.displayName)")
-        print("   Stale date: \(staleDate)")
+        let activity = try Activity.request(
+            attributes: attributes,
+            content: .init(state: initialState, staleDate: staleDate),
+            pushType: .token
+        )
 
-        do {
-            let activity = try Activity.request(
-                attributes: attributes,
-                content: .init(state: initialState, staleDate: staleDate),
-                pushType: .token
-            )
-
-            print("   ✅ Live Activity created successfully!")
-            print("   Activity ID: \(activity.id)")
-            print("   Activity state: \(activity.activityState)")
-
-            activeActivities[event.id] = activity
-            listenForPushTokens(activity, eventId: event.id, sport: sportType, userPreferences: userPreferences)
-        } catch {
-            print("   ❌ Failed to create Live Activity: \(error)")
-            print("   Error details: \(error.localizedDescription)")
-            throw error
-        }
+        activeActivities[event.id] = activity
+        listenForPushTokens(activity, eventId: event.id, sport: sportType, userPreferences: userPreferences)
     }
 
     func stopFollowing(eventId: String, userPreferences: UserPreferences, dismissAfter: TimeInterval = 60) async {
@@ -149,7 +119,7 @@ class SportsLiveActivityManager: ObservableObject {
                 await activity.update(.init(state: latest.state, staleDate: activity.content.staleDate))
             }
         } catch {
-            print("❌ Failed to refresh live activity: \(error)")
+            print("Failed to refresh live activity: \(error.localizedDescription)")
         }
     }
 
@@ -163,7 +133,7 @@ class SportsLiveActivityManager: ObservableObject {
                 activeClaims.removeValue(forKey: eventId)
             }
         } catch {
-            print("❌ Failed to fetch reporter claim: \(error)")
+            print("Failed to fetch reporter claim: \(error.localizedDescription)")
         }
     }
 
@@ -204,7 +174,7 @@ class SportsLiveActivityManager: ObservableObject {
                 await activity.update(.init(state: state, staleDate: activity.content.staleDate))
             }
         } catch {
-            print("❌ Failed to release reporter claim: \(error)")
+            print("Failed to release reporter claim: \(error.localizedDescription)")
         }
     }
 
@@ -249,7 +219,7 @@ class SportsLiveActivityManager: ObservableObject {
                 do {
                     try await cloudService.registerSubscription(subscription)
                 } catch {
-                    print("❌ Failed to register live activity subscription: \(error)")
+                    print("Failed to register live activity subscription: \(error.localizedDescription)")
                 }
             }
         }

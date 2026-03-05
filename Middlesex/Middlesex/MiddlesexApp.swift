@@ -14,14 +14,7 @@ struct MiddlesexApp: App {
 
     @StateObject private var cloudKitManager = CloudKitManager.shared
     @StateObject private var userPreferences = UserPreferences.shared
-    @StateObject private var liveActivityManager: LiveActivityManager = {
-        if #available(iOS 16.2, *) {
-            return LiveActivityManager.shared
-        } else {
-            // Fallback for older iOS versions
-            return LiveActivityManager.shared
-        }
-    }()
+    @StateObject private var liveActivityManager = LiveActivityManager.shared
     @StateObject private var notificationManager = NotificationManager.shared
 
     @Environment(\.scenePhase) private var scenePhase
@@ -32,39 +25,25 @@ struct MiddlesexApp: App {
                 .environmentObject(cloudKitManager)
                 .environmentObject(userPreferences)
                 .onAppear {
-                    // Check and start Live Activity when app opens
                     if #available(iOS 16.2, *) {
                         liveActivityManager.checkAndStartActivityIfNeeded()
                     }
 
-                    // Request notification permissions
                     if userPreferences.hasCompletedOnboarding {
                         Task {
                             await notificationManager.requestPermissions()
-                        }
-                    }
-
-                    // Subscribe to announcement updates (CloudKit push notifications)
-                    if userPreferences.hasCompletedOnboarding {
-                        Task {
                             await cloudKitManager.subscribeToAnnouncementUpdates()
                         }
                     }
 
-                    // Prefetch special schedules for upcoming week (runs in background)
                     Task {
                         await cloudKitManager.prefetchUpcomingSpecialSchedules()
-                    }
-
-                    Task {
                         await cloudKitManager.refreshPermanentAdmins(force: true)
                     }
                 }
                 .onChange(of: scenePhase) { _, newPhase in
-                    // Re-check Live Activity when app becomes active
                     if newPhase == .active {
                         if #available(iOS 16.2, *) {
-                            print("📱 App became active, checking for current class...")
                             liveActivityManager.checkAndStartActivityIfNeeded()
                         }
 
@@ -74,9 +53,7 @@ struct MiddlesexApp: App {
                     }
                 }
                 .onReceive(NotificationCenter.default.publisher(for: UIApplication.significantTimeChangeNotification)) { _ in
-                    // Check when time changes significantly (like when class ends)
                     if #available(iOS 16.2, *) {
-                        print("⏰ Significant time change detected, checking for current class...")
                         liveActivityManager.checkAndStartActivityIfNeeded()
                     }
 

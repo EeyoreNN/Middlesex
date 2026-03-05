@@ -287,32 +287,12 @@ struct DailySchedule {
     ]
 
     static func getSchedule(for date: Date, weekType: WeekType? = nil, specialSchedule: SpecialSchedule? = nil) -> [BlockTime] {
-        // If a special schedule is provided, use it
         if let special = specialSchedule {
-            print("📅 Using special schedule: \(special.title)")
             return special.blocks
         }
 
-        // Otherwise, use regular Red/White week schedule
-        let calendar = Calendar.current
-        let weekday = calendar.component(.weekday, from: date)
-
-        let dayName: String
-        switch weekday {
-        case 1: dayName = "Sunday"
-        case 2: dayName = "Monday"
-        case 3: dayName = "Tuesday"
-        case 4: dayName = "Wednesday"
-        case 5: dayName = "Thursday"
-        case 6: dayName = "Friday"
-        case 7: dayName = "Saturday"
-        default: dayName = "Monday"
-        }
-
-        // Determine week type if not provided
+        let dayName = dayName(for: date)
         let currentWeekType = weekType ?? getCurrentWeekType()
-
-        // Return appropriate schedule based on week type
         let schedules = currentWeekType == .red ? redWeekSchedules : whiteWeekSchedules
         return schedules[dayName] ?? []
     }
@@ -322,10 +302,8 @@ struct DailySchedule {
         return weekNumber % 2 == 0 ? .red : .white
     }
 
-    static func getCurrentDayName() -> String {
-        let calendar = Calendar.current
-        let weekday = calendar.component(.weekday, from: Date())
-
+    static func dayName(for date: Date) -> String {
+        let weekday = Calendar.current.component(.weekday, from: date)
         switch weekday {
         case 1: return "Sunday"
         case 2: return "Monday"
@@ -338,49 +316,13 @@ struct DailySchedule {
         }
     }
 
+    static func getCurrentDayName() -> String {
+        dayName(for: Date())
+    }
+
     static func getCurrentBlock(at currentTime: Date = Date()) -> BlockTime? {
         let todaySchedule = getSchedule(for: currentTime)
-        let calendar = Calendar.current
-
-        let formatter = DateFormatter()
-        formatter.dateFormat = "HH:mm:ss"
-        formatter.timeZone = calendar.timeZone
-        let localTimeString = formatter.string(from: currentTime)
-
-        print("📅 getCurrentBlock debug:")
-        print("   Current time (UTC): \(currentTime)")
-        print("   Current time (Local): \(localTimeString)")
-        print("   Timezone: \(calendar.timeZone.identifier)")
-        print("   Day: \(getCurrentDayName())")
-        print("   Week type: \(getCurrentWeekType())")
-        print("   Schedule has \(todaySchedule.count) blocks")
-
-        for block in todaySchedule {
-            if let start = block.startDate(on: currentTime),
-               let end = block.endDate(on: currentTime) {
-                let isNow = currentTime >= start && currentTime < end
-                let startLocal = formatter.string(from: start)
-                let endLocal = formatter.string(from: end)
-
-                // Debug: show exact comparison for Block C
-                if block.block == "C" {
-                    print("   🔍 Block C detailed check:")
-                    print("      Current: \(currentTime.timeIntervalSince1970)")
-                    print("      Start: \(start.timeIntervalSince1970)")
-                    print("      End: \(end.timeIntervalSince1970)")
-                    print("      current >= start: \(currentTime >= start)")
-                    print("      current < end: \(currentTime < end)")
-                    print("      isNow: \(isNow)")
-                }
-
-                print("   Block \(block.block): \(startLocal)-\(endLocal) (defined as \(block.startTime)-\(block.endTime)) \(isNow ? "← NOW" : "")")
-            }
-        }
-
-        let currentBlock = todaySchedule.first { $0.isHappeningNow(at: currentTime) }
-        print("   Result: \(currentBlock?.block ?? "nil")")
-
-        return currentBlock
+        return todaySchedule.first { $0.isHappeningNow(at: currentTime) }
     }
 
     static func getNextBlock(at currentTime: Date = Date()) -> BlockTime? {

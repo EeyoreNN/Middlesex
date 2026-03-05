@@ -19,6 +19,7 @@ struct MiddlesexLiveActivityLiveActivity: Widget {
                 // Expanded UI - shows when long-pressing
                 DynamicIslandExpandedRegion(.leading) {
                     let accent = Color(hex: context.attributes.classColor) ?? .middlesexRed
+                    let hasDetails = !context.attributes.teacher.isEmpty || !context.attributes.room.isEmpty
 
                     HStack(alignment: .center, spacing: 12) {
                         RoundedRectangle(cornerRadius: 2)
@@ -41,17 +42,25 @@ struct MiddlesexLiveActivityLiveActivity: Widget {
                                     .background(accent.opacity(0.25))
                                     .clipShape(Capsule())
 
-                                Text(context.attributes.room)
-                                    .font(.caption2)
-                                    .foregroundColor(.white.opacity(0.75))
+                                if hasDetails {
+                                    if !context.attributes.room.isEmpty {
+                                        Text(context.attributes.room)
+                                            .font(.caption2)
+                                            .foregroundColor(.white.opacity(0.75))
+                                    }
 
-                                Text("•")
-                                    .font(.caption2)
-                                    .foregroundColor(.white.opacity(0.4))
+                                    if !context.attributes.room.isEmpty && !context.attributes.teacher.isEmpty {
+                                        Text("•")
+                                            .font(.caption2)
+                                            .foregroundColor(.white.opacity(0.4))
+                                    }
 
-                                Text(context.attributes.teacher)
-                                    .font(.caption2)
-                                    .foregroundColor(.white.opacity(0.75))
+                                    if !context.attributes.teacher.isEmpty {
+                                        Text(context.attributes.teacher)
+                                            .font(.caption2)
+                                            .foregroundColor(.white.opacity(0.75))
+                                    }
+                                }
                             }
                             .lineLimit(1)
                         }
@@ -78,7 +87,6 @@ struct MiddlesexLiveActivityLiveActivity: Widget {
                     let accent = Color(hex: context.attributes.classColor) ?? .middlesexRed
 
                     VStack(spacing: 10) {
-                        // Progress bar with system timer
                         ProgressView(timerInterval: context.state.startDate...context.state.endDate, countsDown: false) {
                             EmptyView()
                         }
@@ -86,7 +94,6 @@ struct MiddlesexLiveActivityLiveActivity: Widget {
                         .tint(accent)
                         .frame(height: 3)
 
-                        // Schedule details
                         HStack {
                             Text(context.attributes.startTime)
                                 .font(.caption2.monospacedDigit())
@@ -94,9 +101,9 @@ struct MiddlesexLiveActivityLiveActivity: Widget {
 
                             Spacer()
 
-                            Text(context.attributes.teacher)
-                                .font(.caption2)
-                                .foregroundColor(.white.opacity(0.65))
+                            Text(context.attributes.block)
+                                .font(.caption2.bold())
+                                .foregroundColor(.white.opacity(0.75))
 
                             Spacer()
 
@@ -140,44 +147,24 @@ struct MiddlesexLiveActivityLiveActivity: Widget {
         }
     }
 
-    // Helper: Format time remaining for expanded view
-    private func timeRemainingText(_ timeRemaining: TimeInterval) -> String {
-        let minutes = Int(timeRemaining / 60)
-        let seconds = Int(timeRemaining.truncatingRemainder(dividingBy: 60))
-
-        if minutes > 0 {
-            return "\(minutes):\(String(format: "%02d", seconds))"
-        } else {
-            return "\(seconds)s"
-        }
-    }
-
-    // Helper: Format time for compact view
-    private func compactTimeText(_ timeRemaining: TimeInterval) -> String {
-        let minutes = Int(timeRemaining / 60)
-
-        if minutes > 0 {
-            return "\(minutes)m"
-        } else {
-            let seconds = Int(timeRemaining)
-            return "\(seconds)s"
-        }
-    }
 }
 
 struct LockScreenLiveActivityView: View {
     let context: ActivityViewContext<ClassActivityAttributes>
 
+    private var hasDetails: Bool {
+        !context.attributes.teacher.isEmpty || !context.attributes.room.isEmpty
+    }
+
     var body: some View {
         let accent = Color(hex: context.attributes.classColor) ?? .middlesexRed
 
-        VStack(spacing: 18) {
-            // Header - class information
+        VStack(spacing: 16) {
             HStack(alignment: .top, spacing: 16) {
                 HStack(spacing: 12) {
-                    RoundedRectangle(cornerRadius: 2)
+                    RoundedRectangle(cornerRadius: 3)
                         .fill(.white)
-                        .frame(width: 6, height: 44)
+                        .frame(width: 6, height: hasDetails ? 44 : 36)
 
                     VStack(alignment: .leading, spacing: 6) {
                         Text(context.attributes.className)
@@ -194,17 +181,25 @@ struct LockScreenLiveActivityView: View {
                                 .background(Color.white)
                                 .clipShape(Capsule())
 
-                            Text(context.attributes.teacher)
-                                .font(.caption)
-                                .foregroundColor(.white.opacity(0.85))
+                            if hasDetails {
+                                if !context.attributes.teacher.isEmpty {
+                                    Text(context.attributes.teacher)
+                                        .font(.caption)
+                                        .foregroundColor(.white.opacity(0.85))
+                                }
 
-                            Text("•")
-                                .font(.caption)
-                                .foregroundColor(.white.opacity(0.4))
+                                if !context.attributes.teacher.isEmpty && !context.attributes.room.isEmpty {
+                                    Text("•")
+                                        .font(.caption)
+                                        .foregroundColor(.white.opacity(0.4))
+                                }
 
-                            Text(context.attributes.room)
-                                .font(.caption)
-                                .foregroundColor(.white.opacity(0.85))
+                                if !context.attributes.room.isEmpty {
+                                    Text(context.attributes.room)
+                                        .font(.caption)
+                                        .foregroundColor(.white.opacity(0.85))
+                                }
+                            }
                         }
                         .lineLimit(1)
                     }
@@ -212,7 +207,6 @@ struct LockScreenLiveActivityView: View {
 
                 Spacer()
 
-                // Timer
                 VStack(alignment: .trailing, spacing: 4) {
                     Text(context.state.endDate, style: .timer)
                         .font(.title.bold().monospacedDigit())
@@ -224,15 +218,13 @@ struct LockScreenLiveActivityView: View {
                 }
             }
 
-            // Progress bar
             ProgressView(timerInterval: context.state.startDate...context.state.endDate, countsDown: false) {
                 EmptyView()
             }
             .progressViewStyle(.linear)
             .tint(.white)
-            .frame(height: 3)
+            .frame(height: 4)
 
-            // Footer times
             HStack {
                 Text(context.attributes.startTime)
                     .font(.caption2.monospacedDigit())
@@ -252,7 +244,7 @@ struct LockScreenLiveActivityView: View {
             }
         }
         .padding(.horizontal, 20)
-        .padding(.vertical, 22)
+        .padding(.vertical, 20)
         .background(accent)
         .activityBackgroundTint(accent)
         .activitySystemActionForegroundColor(.white)

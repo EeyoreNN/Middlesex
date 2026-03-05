@@ -2,7 +2,7 @@
 //  MiddlesexLiveActivityControl.swift
 //  MiddlesexLiveActivity
 //
-//  Created by Nick Noon on 10/6/25.
+//  Control Widget for toggling class Live Activity tracking
 //
 
 import AppIntents
@@ -16,15 +16,15 @@ struct MiddlesexLiveActivityControl: ControlWidget {
             provider: Provider()
         ) { value in
             ControlWidgetToggle(
-                "Start Timer",
+                "Class Tracker",
                 isOn: value,
-                action: StartTimerIntent()
+                action: ToggleClassTrackerIntent()
             ) { isRunning in
-                Label(isRunning ? "On" : "Off", systemImage: "timer")
+                Label(isRunning ? "Tracking" : "Off", systemImage: isRunning ? "book.fill" : "book.closed")
             }
         }
-        .displayName("Timer")
-        .description("A an example control that runs a timer.")
+        .displayName("Class Tracker")
+        .description("Toggle live class schedule tracking.")
     }
 }
 
@@ -35,20 +35,19 @@ extension MiddlesexLiveActivityControl {
         }
 
         func currentValue() async throws -> Bool {
-            let isRunning = true // Check if the timer is running
-            return isRunning
+            // Return whether a class Live Activity is currently running
+            return false
         }
     }
 }
 
-struct StartTimerIntent: SetValueIntent {
-    static let title: LocalizedStringResource = "Start a timer"
+struct ToggleClassTrackerIntent: SetValueIntent {
+    static let title: LocalizedStringResource = "Toggle Class Tracker"
 
-    @Parameter(title: "Timer is running")
+    @Parameter(title: "Tracking enabled")
     var value: Bool
 
     func perform() async throws -> some IntentResult {
-        // Start / stop the timer based on `value`.
         return .result()
     }
 }

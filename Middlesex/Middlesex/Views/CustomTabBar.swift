@@ -42,15 +42,15 @@ struct CustomTabBar: View {
                     } label: {
                         ZStack {
                             Circle()
-                                .fill(colorScheme == .dark ? Color.black : Color.white)
-                                .frame(width: 69.75, height: 69.75)
+                                .fill(Color(UIColor.systemBackground))
+                                .frame(width: 70, height: 70)
                                 .shadow(color: MiddlesexTheme.primaryRed.opacity(0.25), radius: 8, x: 0, y: 4)
 
                             Image("MiddlesexShield")
                                 .resizable()
                                 .renderingMode(.original)
                                 .aspectRatio(contentMode: .fit)
-                                .frame(width: 49.91875, height: 49.91875)
+                                .frame(width: 50, height: 50)
                         }
                         .offset(y: -4)
                     }
@@ -94,8 +94,8 @@ struct CustomTabBar: View {
         .padding(.top, 8)
         .padding(.bottom, 8)
         .background(
-            Color.white
-                .shadow(color: Color.black.opacity(0.1), radius: 10, x: 0, y: -2)
+            Color(UIColor.systemBackground)
+                .shadow(color: Color.black.opacity(colorScheme == .dark ? 0.3 : 0.1), radius: 10, x: 0, y: -2)
                 .ignoresSafeArea(edges: .bottom)
         )
         .frame(maxWidth: .infinity)

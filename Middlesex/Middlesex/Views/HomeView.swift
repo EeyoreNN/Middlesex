@@ -82,8 +82,9 @@ struct HomeView: View {
                         .cornerRadius(12)
                         .padding(.horizontal)
 
-                        // Dev tools (admin only)
-                        VStack(spacing: 12) {
+                        #if DEBUG
+                        // Dev tools (admin only, debug builds)
+                        VStack(spacing: 8) {
                             HStack {
                                 Image(systemName: "wrench.fill")
                                     .foregroundColor(.gray)
@@ -95,94 +96,30 @@ struct HomeView: View {
                             .padding(.horizontal)
                             .padding(.top, 8)
 
-                        Button {
-                            showingAdminCodeEntry = true
-                        } label: {
-                            HStack {
-                                Image(systemName: "key.fill")
-                                Text("Admin Code Entry (Dev Only)")
+                            devToolButton("Admin Code Entry", icon: "key.fill", color: .red) {
+                                showingAdminCodeEntry = true
                             }
-                            .font(.caption)
-                            .foregroundColor(.white)
-                            .padding()
-                            .background(Color.red)
-                            .cornerRadius(10)
-                        }
 
-                        Button {
-                            preferences.clearAllData()
-                        } label: {
-                            HStack {
-                                Image(systemName: "arrow.clockwise.circle.fill")
-                                Text("Reset Onboarding (Dev Only)")
+                            devToolButton("Reset Onboarding", icon: "arrow.clockwise.circle.fill", color: .orange) {
+                                preferences.clearAllData()
                             }
-                            .font(.caption)
-                            .foregroundColor(.white)
-                            .padding()
-                            .background(Color.orange)
-                            .cornerRadius(10)
-                        }
 
-                        Button {
-                            // Simulate old version to test update flow
-                            preferences.onboardingVersion = 1
-                        } label: {
-                            HStack {
-                                Image(systemName: "sparkles")
-                                Text("Test Update Flow (Dev Only)")
+                            devToolButton("Test Update Flow", icon: "sparkles", color: .purple) {
+                                preferences.onboardingVersion = 1
                             }
-                            .font(.caption)
-                            .foregroundColor(.white)
-                            .padding()
-                            .background(Color.purple)
-                            .cornerRadius(10)
-                        }
 
-                        Button {
-                            // Test Live Activity
-                            if #available(iOS 16.2, *) {
-                                testLiveActivity()
+                            devToolButton("Test Live Activity", icon: "bell.badge.fill", color: .blue) {
+                                if #available(iOS 16.2, *) {
+                                    testLiveActivity()
+                                }
                             }
-                        } label: {
-                            HStack {
-                                Image(systemName: "bell.badge.fill")
-                                Text("Test Live Activity (Dev Only)")
-                            }
-                            .font(.caption)
-                            .foregroundColor(.white)
-                            .padding()
-                            .background(Color.blue)
-                            .cornerRadius(10)
-                        }
 
-                            Button {
-                                print("🔧 Admin status: \(preferences.isAdmin)")
-                                print("🔧 Toggling admin status...")
+                            devToolButton("Admin Mode: \(preferences.isAdmin ? "ON" : "OFF")", icon: preferences.isAdmin ? "checkmark.circle.fill" : "circle", color: preferences.isAdmin ? .green : .gray) {
                                 preferences.isAdmin.toggle()
-                            } label: {
-                                HStack {
-                                    Image(systemName: preferences.isAdmin ? "checkmark.circle.fill" : "circle")
-                                    Text("Admin Mode: \(preferences.isAdmin ? "ON" : "OFF")")
-                                }
-                                .font(.caption)
-                                .foregroundColor(.white)
-                                .padding()
-                                .background(preferences.isAdmin ? Color.green : Color.gray)
-                                .cornerRadius(10)
                             }
 
-                            Button {
+                            devToolButton("Guest Classes", icon: "person.badge.plus.fill", color: .teal) {
                                 showingGuestClassesFlow = true
-                            } label: {
-                                HStack {
-                                    Image(systemName: "person.badge.plus.fill")
-                                    Text("Guest Classes (Dev Only)")
-                                }
-                                .font(.caption)
-                                .foregroundColor(.white)
-                                .padding()
-                                .background(Color.teal)
-                                .cornerRadius(10)
                             }
                         }
                         .padding(.horizontal)
@@ -190,6 +127,7 @@ struct HomeView: View {
                         .background(Color.gray.opacity(0.1))
                         .cornerRadius(12)
                         .padding(.horizontal)
+                        #endif
                     }
 
                     // Quick stats
@@ -302,6 +240,25 @@ struct HomeView: View {
         }
     }
 
+    #if DEBUG
+    private func devToolButton(_ title: String, icon: String, color: Color, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack {
+                Image(systemName: icon)
+                Text(title)
+            }
+            .font(.caption)
+            .foregroundColor(.white)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .frame(maxWidth: .infinity)
+            .background(color)
+            .cornerRadius(10)
+        }
+        .padding(.horizontal)
+    }
+    #endif
+
     private func handleLogoTap() {
         let now = Date()
 
@@ -353,11 +310,11 @@ struct HomeView: View {
         return nil
     }
 
+    #if DEBUG
     @available(iOS 16.2, *)
     private func testLiveActivity() {
-        // Create a test Live Activity for AP Calculus BC class
         let now = Date()
-        let endDate = now.addingTimeInterval(40 * 60) // 40 minutes from now
+        let endDate = now.addingTimeInterval(40 * 60)
 
         LiveActivityManager.shared.startClassActivity(
             className: "AP Calculus BC",
@@ -370,9 +327,8 @@ struct HomeView: View {
             startDate: now,
             endDate: endDate
         )
-
-        print("🧪 Test Live Activity started!")
     }
+    #endif
 }
 
 struct QuickStatCard: View {

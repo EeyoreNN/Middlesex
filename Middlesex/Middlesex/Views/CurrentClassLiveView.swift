@@ -22,14 +22,12 @@ struct CurrentClassLiveView: View {
         Group {
             if let block = currentBlock {
                 if let cls = userClass {
-                    // Show class with user's schedule
                     LiveActivityCard(
                         block: block,
                         userClass: cls,
                         currentTime: currentTime
                     )
                 } else {
-                    // Show non-class block (Lunch, Announ, etc.)
                     NonClassBlockCard(
                         block: block,
                         currentTime: currentTime
@@ -41,6 +39,7 @@ struct CurrentClassLiveView: View {
                 NoClassCard()
             }
         }
+        .animation(.easeInOut(duration: 0.3), value: currentBlock?.block)
         .onAppear {
             updateCurrentClass()
         }
@@ -224,14 +223,13 @@ struct LiveActivityCard: View {
             // Progress bar
             GeometryReader { geometry in
                 ZStack(alignment: .leading) {
-                    // Background
                     Rectangle()
                         .fill(Color.white.opacity(0.2))
 
-                    // Progress
                     Rectangle()
                         .fill(Color.white)
                         .frame(width: geometry.size.width * progress)
+                        .animation(.linear(duration: 1), value: progress)
                 }
             }
             .frame(height: 4)
@@ -239,7 +237,7 @@ struct LiveActivityCard: View {
         .background(
             Color(hex: userClass.color)?.opacity(0.95) ?? MiddlesexTheme.primaryRed
         )
-        .cornerRadius(16)
+        .clipShape(RoundedRectangle(cornerRadius: 16))
         .shadow(color: Color.black.opacity(0.15), radius: 8, x: 0, y: 4)
     }
 }
@@ -347,12 +345,11 @@ struct NonClassBlockCard: View {
 
         VStack(spacing: 0) {
             HStack(spacing: 16) {
-                // Icon
                 if let info = info {
                     Image(systemName: info.icon)
                         .font(.title3)
                         .foregroundColor(.white)
-                        .frame(width: 8)
+                        .frame(width: 24)
                 }
 
                 // Block name
@@ -382,17 +379,15 @@ struct NonClassBlockCard: View {
             .padding(.horizontal, 20)
             .padding(.bottom, 12)
 
-            // Progress bar
             GeometryReader { geometry in
                 ZStack(alignment: .leading) {
-                    // Background
                     Rectangle()
                         .fill(Color.white.opacity(0.2))
 
-                    // Progress
                     Rectangle()
                         .fill(Color.white)
                         .frame(width: geometry.size.width * progress)
+                        .animation(.linear(duration: 1), value: progress)
                 }
             }
             .frame(height: 4)
@@ -400,7 +395,7 @@ struct NonClassBlockCard: View {
         .background(
             info?.tint.opacity(0.95) ?? MiddlesexTheme.primaryRed
         )
-        .cornerRadius(16)
+        .clipShape(RoundedRectangle(cornerRadius: 16))
         .shadow(color: Color.black.opacity(0.15), radius: 8, x: 0, y: 4)
     }
 }

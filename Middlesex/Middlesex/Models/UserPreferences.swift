@@ -191,18 +191,13 @@ class UserPreferences: ObservableObject {
     // MARK: - CloudKit Sync
 
     func loadUserDataFromCloudKit() {
-        guard !userIdentifier.isEmpty else {
-            print("⚠️ Cannot load from CloudKit - no userIdentifier")
-            return
-        }
+        guard !userIdentifier.isEmpty else { return }
 
         Task {
             let cloudKitManager = CloudKitManager.shared
-            print("📥 Loading user data from CloudKit for user: \(userIdentifier)")
 
             if let userData = await cloudKitManager.fetchUserData(userId: userIdentifier) {
                 await MainActor.run {
-                    print("✅ Loaded user data from CloudKit")
                     self.userName = userData.userName
                     self.userGrade = userData.userGrade
                     self.prefersCelsius = userData.prefersCelsius
@@ -211,10 +206,8 @@ class UserPreferences: ObservableObject {
                     self.notificationsAnnouncements = userData.notificationsAnnouncements
                 }
 
-                // Load schedules
                 if let schedules = await cloudKitManager.fetchUserSchedules(userId: userIdentifier) {
                     await MainActor.run {
-                        print("✅ Loaded schedules from CloudKit")
                         self.redWeekSchedule = schedules.redWeek
                         self.whiteWeekSchedule = schedules.whiteWeek
                     }
@@ -224,16 +217,10 @@ class UserPreferences: ObservableObject {
     }
 
     private func syncUserDataToCloudKit() {
-        guard !userIdentifier.isEmpty else {
-            print("⚠️ Cannot sync to CloudKit - no userIdentifier")
-            return
-        }
+        guard !userIdentifier.isEmpty else { return }
 
         Task {
-            let cloudKitManager = CloudKitManager.shared
-            print("📤 Syncing user data to CloudKit for user: \(userIdentifier)")
-
-            await cloudKitManager.saveUserData(
+            await CloudKitManager.shared.saveUserData(
                 userId: userIdentifier,
                 userName: userName,
                 userGrade: userGrade,
@@ -246,16 +233,10 @@ class UserPreferences: ObservableObject {
     }
 
     private func syncSchedulesToCloudKit() {
-        guard !userIdentifier.isEmpty else {
-            print("⚠️ Cannot sync schedules to CloudKit - no userIdentifier")
-            return
-        }
+        guard !userIdentifier.isEmpty else { return }
 
         Task {
-            let cloudKitManager = CloudKitManager.shared
-            print("📤 Syncing schedules to CloudKit for user: \(userIdentifier)")
-
-            await cloudKitManager.saveUserSchedules(
+            await CloudKitManager.shared.saveUserSchedules(
                 userId: userIdentifier,
                 redWeek: redWeekSchedule,
                 whiteWeek: whiteWeekSchedule
@@ -266,17 +247,9 @@ class UserPreferences: ObservableObject {
     // MARK: - CloudKit Migration
 
     private func performCloudKitMigrationIfNeeded() async {
-        // Only run once
-        guard !hasCompletedCloudKitMigration else {
-            return
-        }
+        guard !hasCompletedCloudKitMigration else { return }
+        guard hasCompletedOnboarding, !userIdentifier.isEmpty else { return }
 
-        // Only migrate if user has completed onboarding and has a user ID
-        guard hasCompletedOnboarding, !userIdentifier.isEmpty else {
-            return
-        }
-
-        // Only migrate if user has a name set (otherwise nothing to migrate)
         guard !userName.isEmpty else {
             await MainActor.run {
                 hasCompletedCloudKitMigration = true
@@ -284,12 +257,7 @@ class UserPreferences: ObservableObject {
             return
         }
 
-        print("🔄 Starting automatic CloudKit migration for user: \(userName)")
-
-        let cloudKitManager = CloudKitManager.shared
-
-        // Force sync user data to CloudKit
-        await cloudKitManager.saveUserData(
+        await CloudKitManager.shared.saveUserData(
             userId: userIdentifier,
             userName: userName,
             userGrade: userGrade,
@@ -301,12 +269,9 @@ class UserPreferences: ObservableObject {
 
         await MainActor.run {
             hasCompletedCloudKitMigration = true
-            print("✅ CloudKit migration completed successfully!")
-            print("   Your name '\(userName)' is now available in announcement targeting")
         }
     }
 
-    // Public method to force re-migration (for debugging)
     func resetCloudKitMigration() {
         hasCompletedCloudKitMigration = false
         Task {
